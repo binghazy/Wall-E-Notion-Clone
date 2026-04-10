@@ -1,0 +1,190 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+:root {
+  height: 100%;
+}
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 3.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 3.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 3.9%;
+
+    --primary: 0 0% 9%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary: 0 0% 96.1%;
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96.1%;
+    --muted-foreground: 0 0% 45.1%;
+
+    --accent: 0 0% 96.1%;
+    --accent-foreground: 0 0% 9%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 89.8%;
+    --input: 0 0% 89.8%;
+    --ring: 0 0% 3.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer components {
+  .bn-block-outer[data-walle-ai-generated="active"] .bn-block-content,
+  .bn-block-outer[data-walle-ai-generated="fading"] .bn-block-content {
+    position: relative;
+    border-radius: 0.95rem;
+    border: 1px solid transparent;
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.18),
+      0 12px 28px rgba(59, 130, 246, 0.12);
+    background: linear-gradient(
+      135deg,
+      rgba(219, 234, 254, 0.9),
+      rgba(239, 246, 255, 0.72)
+    );
+    color: rgb(30, 64, 175);
+    transition:
+      background-color 0.6s ease,
+      box-shadow 0.6s ease,
+      color 0.6s ease,
+      transform 0.6s ease;
+    transform: translateY(-1px);
+  }
+
+  .bn-block-outer[data-walle-ai-generated="fading"] .bn-block-content {
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0),
+      0 0 0 rgba(59, 130, 246, 0);
+    background: transparent;
+    color: inherit;
+    transform: translateY(0);
+  }
+
+  .dark .bn-block-outer[data-walle-ai-generated="active"] .bn-block-content,
+  .dark .bn-block-outer[data-walle-ai-generated="fading"] .bn-block-content {
+    box-shadow:
+      0 0 0 1px rgba(96, 165, 250, 0.22),
+      0 14px 30px rgba(15, 23, 42, 0.38);
+    background: linear-gradient(
+      135deg,
+      rgba(30, 58, 138, 0.3),
+      rgba(15, 23, 42, 0.16)
+    );
+    color: rgb(191, 219, 254);
+  }
+
+  .dark .bn-block-outer[data-walle-ai-generated="fading"] .bn-block-content {
+    box-shadow:
+      0 0 0 1px rgba(96, 165, 250, 0),
+      0 0 0 rgba(15, 23, 42, 0);
+    background: transparent;
+    color: inherit;
+    transform: translateY(0);
+  }
+
+  .bn-block-outer[data-walle-ai-generated="active"] .bn-block-content :is(p, li, span, td, th),
+  .bn-block-outer[data-walle-ai-generated="fading"] .bn-block-content :is(p, li, span, td, th) {
+    color: inherit;
+  }
+
+  .bn-block-outer[data-walle-ai-generated-first="true"] .bn-block-content::before {
+    content: "AI";
+    position: absolute;
+    left: 0.75rem;
+    top: -0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: 0.18rem 0.5rem;
+    border-radius: 999px;
+    background: rgb(37, 99, 235);
+    color: white;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.25);
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity 0.8s ease,
+      transform 0.8s ease,
+      box-shadow 0.8s ease;
+  }
+
+  .dark .bn-block-outer[data-walle-ai-generated-first="true"] .bn-block-content::before {
+    background: rgb(96, 165, 250);
+    color: rgb(15, 23, 42);
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.45);
+  }
+
+  .bn-block-outer[data-walle-ai-generated-first="true"][data-walle-ai-generated="fading"] .bn-block-content::before {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+    box-shadow: 0 0 0 rgba(37, 99, 235, 0);
+  }
+}
