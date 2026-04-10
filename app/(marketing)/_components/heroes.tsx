@@ -8,7 +8,7 @@ const Heroes = () => {
       <div className="flex items-center justify-center">
         <div className="relative h-[400px] w-[400px]">
           <Image
-            src="/WALLE.png"
+            src="/walle.png"
             fill
             className="object-contain dark:hidden"
             alt="Documents"
