@@ -28,7 +28,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { getResolvedAiSettings, useAiSettings } from "@/hooks/use-ai-settings";
 import { useEditorStore } from "@/hooks/use-editor-store";
-import { useEdgeStore } from "@/lib/edgestore";
 
 interface EditorProps {
   onChange: (value: string) => void;
@@ -88,7 +87,6 @@ const SuggestionMenuWithAI = ({
 
 const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
   const { resolvedTheme } = useTheme();
-  const { edgestore } = useEdgeStore();
   // Default to light theme during SSR to prevent hydration mismatch
   const theme = (resolvedTheme === "dark" ? "dark" : "light") || "light";
   const setEditor = useEditorStore((state) => state.setEditor);
@@ -118,13 +116,9 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
 
   const handleUpload = useCallback(
     async (file: File) => {
-      const response = await edgestore.publicFiles.upload({
-        file,
-      });
-
-      return response.url;
+      return URL.createObjectURL(file);
     },
-    [edgestore],
+    [],
   );
 
   const editor = useCreateBlockNote(
