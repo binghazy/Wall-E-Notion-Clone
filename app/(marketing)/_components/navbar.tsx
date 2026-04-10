@@ -1,6 +1,5 @@
 "use client";
 
-import { SignInButton, UserButton } from "@clerk/nextjs";
 import { useConvexAuth } from "convex/react";
 import Link from "next/link";
 
@@ -30,26 +29,16 @@ const Navbar = () => {
       flex items-center gap-x-2"
       >
         {isLoading && <Spinner />}
-        {!isAuthenticated && !isLoading && (
-          <>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/documents">Continue as guest</Link>
-            </Button>
-            <SignInButton mode="modal">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-            </SignInButton>
-          </>
-        )}
-        {isAuthenticated && !isLoading && (
-          <>
+        {!isLoading &&
+          (isAuthenticated ? (
             <Button variant="ghost" size="sm" asChild>
               <Link href="/documents">Enter Wall-E AI</Link>
             </Button>
-            <UserButton afterSignOutUrl="/" />
-          </>
-        )}
+          ) : (
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/documents">Continue as guest</Link>
+            </Button>
+          ))}
         <ModeToggle />
       </div>
     </div>

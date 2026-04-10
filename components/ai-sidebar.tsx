@@ -1,7 +1,6 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useUser } from "@clerk/nextjs";
 import {
   CalendarDays,
   CheckSquare2,
@@ -156,7 +155,6 @@ const quickPrompts = [
 ];
 
 export const AiSidebar = () => {
-  const { user, isLoaded: isUserLoaded, isSignedIn } = useUser();
   const pathname = usePathname();
   const isDocumentPage = pathname.startsWith("/documents/");
   const editor = useEditorStore((state) => state.editor);
@@ -174,9 +172,7 @@ export const AiSidebar = () => {
   const handledToolCallIdsRef = useRef<Set<string>>(new Set());
   const onboardingPromptedIdentityRef = useRef<string | null>(null);
 
-  const onboardingIdentity = useMemo(() => {
-    return isSignedIn && user?.id ? user.id : "guest";
-  }, [isSignedIn, user?.id]);
+  const onboardingIdentity = "guest";
 
   const activeModel =
     aiModel || getDefaultModelForProvider(aiProvider) || DEFAULT_WALLE_MODEL;
@@ -307,7 +303,6 @@ export const AiSidebar = () => {
 
   useEffect(() => {
     if (
-      !isUserLoaded ||
       !isDocumentPage ||
       onboardingPromptedIdentityRef.current === onboardingIdentity
     ) {
@@ -330,7 +325,7 @@ export const AiSidebar = () => {
     setIsAiSettingsOnboardingFlow(true);
     setIsAiSettingsDialogOpen(true);
     toast.info("Set your name, AI provider, and model to get started.");
-  }, [aiUserName, isDocumentPage, isUserLoaded, onboardingIdentity]);
+  }, [aiUserName, isDocumentPage, onboardingIdentity]);
 
   useEffect(() => {
     const latestAssistantMessage = [...messages]

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { toast } from "sonner";
 import { MoreHorizontal, Trash } from "lucide-react";
@@ -15,6 +14,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { api } from "@/convex/_generated/api";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -24,8 +24,8 @@ interface MenuProps {
 
 export const Menu = ({ documentId }: MenuProps) => {
   const router = useRouter();
-  const { user } = useUser();
-  const editorName = user?.fullName ?? "Guest";
+  const userName = useAiSettings((state) => state.userName);
+  const editorName = userName.trim() || "Guest";
 
   const archive = useMutation(api.documents.archive);
 

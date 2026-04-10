@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation } from "convex/react";
 import { Bot, FileText, PlusCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
@@ -11,22 +10,21 @@ import { useEffect, useState } from "react";
 
 import { api } from "@/convex/_generated/api";
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import { Button } from "@/components/ui/button";
 
 const DocumentsPage = () => {
   const { isAuthenticated } = useConvexAuth();
-  const { user } = useUser();
+  const userName = useAiSettings((state) => state.userName);
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
-  const firstName = hasMounted ? user?.firstName ?? "Guest" : "Guest";
-  const workspaceName =
-    hasMounted && user?.fullName
-      ? `${user.fullName}'s workspace`
-      : "Guest workspace";
+  const resolvedUserName = hasMounted ? userName.trim() || "Guest" : "Guest";
+  const firstName = resolvedUserName;
+  const workspaceName = `${resolvedUserName}'s workspace`;
 
   return isAuthenticated ? (
     <AuthenticatedDocumentsHome
@@ -228,4 +226,3 @@ const DocumentsHomeContent = ({
 };
 
 export default DocumentsPage;
-

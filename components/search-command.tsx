@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { File } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 
@@ -15,12 +14,13 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { useSearch } from "@/hooks/use-search";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import { api } from "@/convex/_generated/api";
 import { getDocumentDisplayTitle } from "@/lib/document-title";
 
 export const SearchCommand = () => {
-  const { user } = useUser();
-  const ownerName = user?.fullName ?? "Guest";
+  const userName = useAiSettings((state) => state.userName);
+  const ownerName = userName.trim() || "Guest";
   const router = useRouter();
   const documents = useQuery(api.documents.getSearch);
   const [isMounted, setIsMounted] = useState(false);

@@ -1,6 +1,5 @@
 "use client";
 
-import { SignInButton } from "@clerk/nextjs";
 import { useConvexAuth } from "convex/react";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
@@ -35,17 +34,12 @@ const Heading = () => {
         </Button>
       )}
       {!isAuthenticated && !isLoading && (
-        <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Button asChild>
-            <Link href="/documents">
-              Continue as guest
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Link>
-          </Button>
-          <SignInButton mode="modal">
-            <Button variant="ghost">Log in</Button>
-          </SignInButton>
-        </div>
+        <Button asChild>
+          <Link href="/documents">
+            Continue as guest
+            <ArrowRight className="h-4 w-4 ml-2" />
+          </Link>
+        </Button>
       )}
     </div>
   );

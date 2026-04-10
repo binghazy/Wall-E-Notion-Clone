@@ -1,24 +1,21 @@
 "use client";
 
-import { useUser, SignOutButton } from "@clerk/nextjs";
 import { ChevronsLeftRight } from "lucide-react";
 
-import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
 export const UserItem = () => {
-  const { user } = useUser();
-  const workspaceLabel = user?.fullName
-    ? `${user.fullName}'s Wall-E AI`
-    : "Guest Wall-E AI";
-  const emailLabel =
-    user?.emailAddresses[0]?.emailAddress ?? "Local guest session";
+  const userName = useAiSettings((state) => state.userName);
+  const resolvedName = userName.trim() || "Guest";
+  const workspaceLabel = `${resolvedName}'s Wall-E AI`;
+  const emailLabel = "Local guest session";
+  const avatarFallback = resolvedName.charAt(0).toUpperCase() || "G";
 
   return (
     <DropdownMenu>
@@ -29,7 +26,8 @@ export const UserItem = () => {
         >
           <div className="gap-x-2 flex items-center max-w-[150px]">
             <Avatar className="h-5 w-5">
-              <AvatarImage src={user?.imageUrl} />
+              <AvatarImage src={undefined} />
+              <AvatarFallback>{avatarFallback}</AvatarFallback>
             </Avatar>
             <span className="text-start font-medium line-clamp-1">
               {workspaceLabel}
@@ -51,7 +49,8 @@ export const UserItem = () => {
           <div className="flex items-center gap-x-2">
             <div className="rounded-md bg-secondary p-1">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user?.imageUrl} />
+                <AvatarImage src={undefined} />
+                <AvatarFallback>{avatarFallback}</AvatarFallback>
               </Avatar>
             </div>
             <div className="space-y-1">
@@ -59,17 +58,6 @@ export const UserItem = () => {
             </div>
           </div>
         </div>
-        {user && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              asChild
-              className="w-full cursor-pointer text-muted-foreground"
-            >
-              <SignOutButton>Log out</SignOutButton>
-            </DropdownMenuItem>
-          </>
-        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

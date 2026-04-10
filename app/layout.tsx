@@ -1,7 +1,6 @@
 import { Toaster } from "sonner";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
 
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { ConvexClientProvider } from "@/components/providers/convex-provider";
@@ -39,23 +38,21 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ClerkProvider>
-          <ConvexClientProvider>
-            <EdgeStoreProvider>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-                storageKey="Wall-E AI-theme-2"
-              >
-                <Toaster position="bottom-center" />
-                <ModalProvider />
-                {children}
-              </ThemeProvider>
-            </EdgeStoreProvider>
-          </ConvexClientProvider>
-        </ClerkProvider>
+        <ConvexClientProvider>
+          <EdgeStoreProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+              storageKey="Wall-E AI-theme-2"
+            >
+              <Toaster position="bottom-center" />
+              <ModalProvider />
+              {children}
+            </ThemeProvider>
+          </EdgeStoreProvider>
+        </ConvexClientProvider>
       </body>
     </html>
   );

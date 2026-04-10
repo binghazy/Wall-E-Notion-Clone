@@ -8,12 +8,12 @@ import {
   Plus,
   Trash,
 } from "lucide-react";
-import { useUser } from "@clerk/nextjs";
 import { useMutation } from "convex/react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { Id } from "@/convex/_generated/dataModel";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
@@ -50,8 +50,8 @@ const Item = ({
   onExpand,
   expanded,
 }: ItemProps) => {
-  const { user } = useUser();
-  const editorName = user?.fullName ?? "Guest";
+  const userName = useAiSettings((state) => state.userName);
+  const editorName = userName.trim() || "Guest";
   const router = useRouter();
   const create = useMutation(api.documents.create);
   const archive = useMutation(api.documents.archive);
