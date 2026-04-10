@@ -1,20 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useConvexAuth, useMutation } from "convex/react";
 import { Bot, FileText, PlusCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { api } from "@/convex/_generated/api";
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { Button } from "@/components/ui/button";
 
 const DocumentsPage = () => {
-  const { isAuthenticated } = useConvexAuth();
   const userName = useAiSettings((state) => state.userName);
   const [hasMounted, setHasMounted] = useState(false);
 
@@ -26,71 +22,24 @@ const DocumentsPage = () => {
   const firstName = resolvedUserName;
   const workspaceName = `${resolvedUserName}'s workspace`;
 
-  return isAuthenticated ? (
-    <AuthenticatedDocumentsHome
-      firstName={firstName}
-      workspaceName={workspaceName}
-    />
-  ) : (
-    <GuestDocumentsHome firstName={firstName} workspaceName={workspaceName} />
-  );
-};
-
-const AuthenticatedDocumentsHome = ({
-  firstName,
-  workspaceName,
-}: {
-  firstName: string;
-  workspaceName: string;
-}) => {
-  const router = useRouter();
-  const create = useMutation(api.documents.create);
-
-  const onCreate = () => {
-    const promise = create({ title: "" }).then((documentId) =>
-      router.push(`/documents/${documentId}`),
-    );
-
-    toast.promise(promise, {
-      loading: "Creating a new note...",
-      success: "New note created!",
-      error: "Failed to create a new note.",
-    });
-  };
-
-  return (
-    <DocumentsHomeContent
-      firstName={firstName}
-      workspaceName={workspaceName}
-      mode="authenticated"
-      onCreate={onCreate}
-    />
-  );
-};
-
-const GuestDocumentsHome = ({
-  firstName,
-  workspaceName,
-}: {
-  firstName: string;
-  workspaceName: string;
-}) => {
-  const router = useRouter();
-  const createDocument = useGuestDocuments((state) => state.createDocument);
-
-  const onCreate = () => {
-    const documentId = createDocument();
-    router.push(`/documents/${documentId}`);
-  };
-
   return (
     <DocumentsHomeContent
       firstName={firstName}
       workspaceName={workspaceName}
       mode="guest"
-      onCreate={onCreate}
+      onCreate={useGuestCreateDocument()}
     />
   );
+};
+
+const useGuestCreateDocument = () => {
+  const router = useRouter();
+  const createDocument = useGuestDocuments((state) => state.createDocument);
+
+  return () => {
+    const documentId = createDocument();
+    router.push(`/documents/${documentId}`);
+  };
 };
 
 const DocumentsHomeContent = ({

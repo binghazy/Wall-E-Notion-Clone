@@ -1,73 +1,79 @@
 "use client";
 
-import { useMutation, useQuery } from "convex/react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { FileText } from "lucide-react";
 import { useMemo } from "react";
 
-import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
-import { Toolbar } from "@/components/toolbar";
-import { Cover } from "@/components/cover";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useGuestDocuments } from "@/hooks/use-guest-documents";
+import { getDocumentDisplayTitle } from "@/lib/document-title";
 
-interface DocumentIdPageProps {
+interface DocumentPreviewPageProps {
   params: {
-    documentId: Id<"documents">;
+    documentId: string;
   };
 }
 
-const DocumentIdPage = ({ params }: DocumentIdPageProps) => {
-  const Editor = useMemo(
-    () => dynamic(() => import("@/components/editor"), { ssr: false }),
-    []
+const DocumentPreviewPage = ({ params }: DocumentPreviewPageProps) => {
+  const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
+  const document = useGuestDocuments((state) =>
+    state.documents.find((entry) => entry.id === params.documentId),
   );
 
-  const document = useQuery(api.documents.getById, {
-    documentId: params.documentId,
-  });
+  const Editor = useMemo(
+    () => dynamic(() => import("@/components/editor"), { ssr: false }),
+    [],
+  );
 
-  const update = useMutation(api.documents.update);
-
-  const onChange = (content: string) => {
-    update({
-      id: params.documentId,
-      content,
-    });
-  };
-
-  if (document === undefined) {
+  if (!hasHydrated) {
     return (
-      <div>
-        <Cover.Skeleton />
-        <div className="md:max-w-3xl lg:max-w-4xl mx-auto mt-10">
-          <div className="space-y-4 pl-8 pt-4">
-            <Skeleton className="h-14 w-[50%]" />
-            <Skeleton className="h-4 w-[80%]" />
-            <Skeleton className="h-4 w-[40%]" />
-            <Skeleton className="h-4 w-[60%]" />
-          </div>
+      <div className="px-6 py-8">
+        <div className="mx-auto max-w-4xl space-y-4">
+          <Skeleton className="h-12 w-80" />
+          <Skeleton className="h-[420px] w-full" />
         </div>
       </div>
     );
   }
 
-  if (document === null) {
-    return <div>Not found</div>;
+  if (!document) {
+    return (
+      <div className="flex min-h-full items-center justify-center px-6 py-12">
+        <div className="w-full max-w-xl rounded-3xl border bg-card p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <FileText className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <h1 className="mt-4 text-2xl font-semibold">Preview not available</h1>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            This local guest note exists only in its original browser session.
+          </p>
+          <Button className="mt-6" asChild>
+            <Link href="/documents">Back to guest workspace</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="pb-40">
-      <Cover preview url={document.coverImage} />
-      <div className="md:max-w-3xl lg:max-w-4xl mx-auto">
-        <Toolbar preview initialData={document} />
+    <div className="min-h-full bg-background px-6 py-8">
+      <div className="mx-auto max-w-4xl">
+        <h1 className="mb-2 text-3xl font-semibold">
+          {getDocumentDisplayTitle(document.title)}
+        </h1>
+        <p className="mb-6 text-sm text-muted-foreground">
+          Read-only guest preview
+        </p>
         <Editor
           editable={false}
-          onChange={onChange}
           initialContent={document.content}
+          onChange={() => undefined}
         />
       </div>
     </div>
   );
 };
 
-export default DocumentIdPage;
+export default DocumentPreviewPage;
