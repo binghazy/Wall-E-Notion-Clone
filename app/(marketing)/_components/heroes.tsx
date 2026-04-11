@@ -3,7 +3,7 @@ const Heroes = () => {
   return (
     <div
       className="flex flex-col items-center justify-center
-  max-w-5xl"
+  max-w-5xl -mt-4 md:-mt-6"
     >
       <div className="flex items-center justify-center">
         <div className="relative h-[400px] w-[400px]">

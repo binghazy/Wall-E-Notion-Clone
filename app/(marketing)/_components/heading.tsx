@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 
 const Heading = () => {
   return (
-    <div className="max-x-3xl space-y-4">
+    <div className="max-x-3xl space-y-4 -mt-4 md:-mt-6">
       <h1 className="text-3xl sm:text-5xl md:text-6xl font-bold">
         Your Ideas, Documents, & Plans. <br />
         Unified. Welcome to <span className="underline">Wall-E AI</span>
