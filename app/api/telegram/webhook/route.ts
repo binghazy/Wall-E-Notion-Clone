@@ -1,4 +1,4 @@
-import { type CoreMessage, generateText, tool } from "ai";
+import { type CoreMessage, generateText, stepCountIs, tool } from "ai";
 import { ConvexHttpClient } from "convex/browser";
 import { z } from "zod";
 
@@ -209,7 +209,7 @@ const runAssistantTurn = async ({
   const response = await generateText({
     model,
     providerOptions,
-    maxSteps: 4,
+    stopWhen: stepCountIs(4),
     system: buildSystemPrompt(displayName),
     messages: [
       ...toCoreMessages(historyMessages),
