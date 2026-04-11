@@ -18,6 +18,7 @@ type GuestDocumentsStore = {
   hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   createDocument: (title?: string) => string;
+  upsertDocuments: (documents: GuestDocument[]) => void;
   updateDocument: (id: string, updates: GuestDocumentUpdates) => void;
   removeDocument: (id: string) => void;
 };
@@ -56,6 +57,39 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
         }));
 
         return id;
+      },
+      upsertDocuments: (incomingDocuments) => {
+        set((state) => {
+          if (incomingDocuments.length === 0) {
+            return state;
+          }
+
+          const byId = new Map(
+            state.documents.map((document) => [document.id, document]),
+          );
+
+          for (const incomingDocument of incomingDocuments) {
+            const existingDocument = byId.get(incomingDocument.id);
+
+            if (!existingDocument) {
+              byId.set(incomingDocument.id, incomingDocument);
+              continue;
+            }
+
+            byId.set(incomingDocument.id, {
+              ...existingDocument,
+              ...incomingDocument,
+              updatedAt: Math.max(
+                existingDocument.updatedAt,
+                incomingDocument.updatedAt,
+              ),
+            });
+          }
+
+          return {
+            documents: sortDocuments(Array.from(byId.values())),
+          };
+        });
       },
       updateDocument: (id, updates) => {
         set((state) => ({

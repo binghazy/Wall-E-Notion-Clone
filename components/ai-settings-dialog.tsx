@@ -103,7 +103,7 @@ export const AiSettingsDialog = ({
             AI Settings
           </DialogTitle>
           <DialogDescription>
-            Switch between cloud Gemini and local Ollama 
+            Switch between Wall-E AI, Gemini cloud, and local Ollama.
           </DialogDescription>
         </DialogHeader>
 
@@ -124,7 +124,23 @@ export const AiSettingsDialog = ({
 
           <div className="space-y-2">
             <Label>Provider</Label>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border p-2">
+            <div className="grid grid-cols-3 gap-2 rounded-2xl border p-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDraftProvider("puter");
+                  setDraftModel(getDefaultModelForProvider("puter"));
+                }}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                  draftProvider === "puter"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/40 hover:bg-muted",
+                )}
+              >
+                <Cloud className="h-4 w-4" />
+                Wall-E AI
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -170,9 +186,9 @@ export const AiSettingsDialog = ({
               className="h-11 rounded-xl"
             />
             <p className="text-xs text-muted-foreground">
-              {draftProvider === "gemini"
-                ? "Example: `gemini-3-flash-preview`."
-                : "Example: `qwen3:4b`, `llama3.1:8b`, or another local Ollama model tag."}
+              {draftProvider === "ollama"
+                ? "Example: `qwen3:4b`, `llama3.1:8b`, or another local Ollama model tag."
+                : "Examples: `claude-sonnet-4-5`, `gemini-2.5-flash-lite`, `gpt-5-nano`, `gpt-5.4-nano`."}
             </p>
           </div>
 
@@ -193,6 +209,10 @@ export const AiSettingsDialog = ({
               <p className="text-xs text-muted-foreground">
                 Leave empty to use the server Gemini key.
               </p>
+            </div>
+          ) : draftProvider === "puter" ? (
+            <div className="rounded-2xl border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+              Wall-E auth is managed on the server using environment variables.
             </div>
           ) : (
             <div className="space-y-2">

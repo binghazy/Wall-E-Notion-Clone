@@ -4,12 +4,24 @@ import { MutationCtx, QueryCtx, mutation, query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
 
 const GUEST_USER_ID = "guest";
+const TELEGRAM_SESSION_PREFIX = "telegram-session:";
+const TELEGRAM_SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{16,80}$/;
 
 async function getCurrentUserId(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
 
   return identity?.subject ?? GUEST_USER_ID;
 }
+
+const getTelegramSessionUserId = (sessionId: string) => {
+  const normalizedSessionId = sessionId.trim();
+
+  if (!TELEGRAM_SESSION_ID_PATTERN.test(normalizedSessionId)) {
+    throw new Error("Invalid Telegram session ID.");
+  }
+
+  return `${TELEGRAM_SESSION_PREFIX}${normalizedSessionId}`;
+};
 
 export const archive = mutation({
   args: { id: v.id("documents") },
@@ -90,6 +102,45 @@ export const create = mutation({
     });
 
     return document;
+  },
+});
+
+export const createFromTelegram = mutation({
+  args: {
+    sessionId: v.string(),
+    title: v.string(),
+    content: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = getTelegramSessionUserId(args.sessionId);
+    const normalizedTitle = args.title.trim() || "Untitled";
+
+    const documentId = await ctx.db.insert("documents", {
+      title: normalizedTitle,
+      userId,
+      parentDocument: undefined,
+      content: args.content,
+      isArchived: false,
+      isPublished: false,
+    });
+
+    return documentId;
+  },
+});
+
+export const listForTelegramSession = query({
+  args: {
+    sessionId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const userId = getTelegramSessionUserId(args.sessionId);
+
+    return await ctx.db
+      .query("documents")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .filter((q) => q.eq(q.field("isArchived"), false))
+      .order("desc")
+      .collect();
   },
 });
 

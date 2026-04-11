@@ -537,6 +537,10 @@ export const AiSidebar = () => {
                           Server key
                         </span>
                       )
+                    ) : resolvedAiSettings.provider === "puter" ? (
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-medium text-muted-foreground dark:bg-white/5">
+                        Server token
+                      </span>
                     ) : (
                       <span className="rounded-full bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-300">
                         Is Running

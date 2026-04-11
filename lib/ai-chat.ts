@@ -192,11 +192,12 @@ const openAICompatibleToolCallFetch: typeof fetch = async (input, init) => {
   return response;
 };
 
-const WALLE_AI_PROVIDERS = ["gemini", "ollama"] as const;
+const WALLE_AI_PROVIDERS = ["puter", "gemini", "ollama"] as const;
 
 export type WallEAiProvider = (typeof WALLE_AI_PROVIDERS)[number];
 
-const DEFAULT_WALLE_AI_PROVIDER: WallEAiProvider = "gemini";
+const DEFAULT_WALLE_AI_PROVIDER: WallEAiProvider = "puter";
+const DEFAULT_PUTER_MODEL = process.env.PUTER_MODEL ?? "gpt-5-nano";
 const DEFAULT_GEMINI_MODEL =
   process.env.GEMINI_MODEL ?? "gemini-3-flash-preview";
 const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen3:4b";
@@ -204,6 +205,7 @@ const DEFAULT_OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL ??
   process.env.OLLAMA_API ??
   "http://localhost:11434";
+const DEFAULT_PUTER_BASE_URL = "https://api.puter.com/puterai/openai/v1";
 
 const normalizeWallEAiProvider = (
   provider: string | undefined,
@@ -239,12 +241,24 @@ const envGeminiApiKey =
   process.env.gemini_api_key ??
   process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
   process.env.GOOGLE_API_KEY;
+const envPuterAuthToken =
+  process.env.PUTER_AUTH_TOKEN ??
+  process.env.PUTER_API_KEY ??
+  process.env.puter_auth_token;
 
 const createGeminiClient = (apiKey: string) =>
   createOpenAI({
     name: "google",
     apiKey,
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+    fetch: openAICompatibleToolCallFetch,
+  });
+
+const createPuterClient = (authToken: string) =>
+  createOpenAI({
+    name: "puter",
+    apiKey: authToken,
+    baseURL: DEFAULT_PUTER_BASE_URL,
     fetch: openAICompatibleToolCallFetch,
   });
 
@@ -313,6 +327,10 @@ const getResolvedGeminiApiKey = (settings?: WallEAiRuntimeSettings) => {
   return settings?.apiKey || envGeminiApiKey;
 };
 
+const getResolvedPuterAuthToken = (_settings?: WallEAiRuntimeSettings) => {
+  return envPuterAuthToken;
+};
+
 const getResolvedOllamaBaseUrl = (settings?: WallEAiRuntimeSettings) => {
   return ensureOpenAICompatibleBaseUrl(
     settings?.ollamaBaseUrl || DEFAULT_OLLAMA_BASE_URL,
@@ -343,7 +361,11 @@ export const hasWallEAiProviderConfig = (settings?: WallEAiRuntimeSettings) => {
     return Boolean(getResolvedOllamaBaseUrl(settings));
   }
 
-  return Boolean(getResolvedGeminiApiKey(settings));
+  if (provider === "gemini") {
+    return Boolean(getResolvedGeminiApiKey(settings));
+  }
+
+  return Boolean(getResolvedPuterAuthToken(settings));
 };
 
 export const getMissingWallEAiConfigResponse = (
@@ -362,11 +384,22 @@ export const getMissingWallEAiConfigResponse = (
     );
   }
 
+  if (provider === "gemini") {
+    return new Response(
+      JSON.stringify({
+        error: "Missing Gemini API key",
+        details:
+          "Add a Gemini API key in AI settings or set GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GOOGLE_API_KEY in the server environment.",
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
   return new Response(
     JSON.stringify({
-      error: "Missing Gemini API key",
+      error: "Missing Puter auth token",
       details:
-        "Add a Gemini API key in AI settings or set GEMINI_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or GOOGLE_API_KEY in the server environment.",
+        "Set PUTER_AUTH_TOKEN (or PUTER_API_KEY / puter_auth_token) in the server environment.",
     }),
     { status: 500, headers: { "Content-Type": "application/json" } },
   );
@@ -375,7 +408,7 @@ export const getMissingWallEAiConfigResponse = (
 export const getWallEProviderOptions = (settings?: WallEAiRuntimeSettings) => {
   const provider = getWallEAiProvider(settings);
 
-  if (provider === "gemini") {
+  if (provider === "gemini" || provider === "puter") {
     return {
       openai: {
         reasoningEffort: "none",
@@ -431,9 +464,12 @@ Ollama stability mode:
 
 export const getWallEChatModel = (settings?: WallEAiRuntimeSettings) => {
   const provider = getWallEAiProvider(settings);
-  const modelId =
-    settings?.model ||
-    (provider === "ollama" ? DEFAULT_OLLAMA_MODEL : DEFAULT_GEMINI_MODEL);
+  const modelId = settings?.model ||
+    (provider === "ollama"
+      ? DEFAULT_OLLAMA_MODEL
+      : provider === "gemini"
+        ? DEFAULT_GEMINI_MODEL
+        : DEFAULT_PUTER_MODEL);
 
   if (provider === "ollama") {
     const ollamaBaseUrl = getResolvedOllamaBaseUrl(settings);
@@ -445,13 +481,23 @@ export const getWallEChatModel = (settings?: WallEAiRuntimeSettings) => {
     return createOllamaClient(ollamaBaseUrl).chat(modelId);
   }
 
-  const apiKey = getResolvedGeminiApiKey(settings);
+  if (provider === "gemini") {
+    const apiKey = getResolvedGeminiApiKey(settings);
 
-  if (!apiKey) {
-    throw new Error("Missing Gemini API key.");
+    if (!apiKey) {
+      throw new Error("Missing Gemini API key.");
+    }
+
+    return createGeminiClient(apiKey).chat(modelId);
   }
 
-  return createGeminiClient(apiKey).chat(modelId);
+  const authToken = getResolvedPuterAuthToken(settings);
+
+  if (!authToken) {
+    throw new Error("Missing Puter auth token.");
+  }
+
+  return createPuterClient(authToken).chat(modelId);
 };
 
 export const createWallESystemPrompt = (

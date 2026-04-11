@@ -190,9 +190,9 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
     }
 
     const aiWritingStallTimeoutMs =
-      resolvedAiSettings.provider === "gemini"
-        ? CLOUD_AI_WRITING_STALL_TIMEOUT_MS
-        : LOCAL_AI_WRITING_STALL_TIMEOUT_MS;
+      resolvedAiSettings.provider === "ollama"
+        ? LOCAL_AI_WRITING_STALL_TIMEOUT_MS
+        : CLOUD_AI_WRITING_STALL_TIMEOUT_MS;
 
     let stalledWritingTimeout: ReturnType<typeof setTimeout> | null = null;
 

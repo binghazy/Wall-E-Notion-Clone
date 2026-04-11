@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/collapsible";
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
 import { useAiSettings } from "@/hooks/use-ai-settings";
+import { useTelegramSession } from "@/hooks/use-telegram-session";
 import { cn } from "@/lib/utils";
 import { getDocumentDisplayTitle } from "@/lib/document-title";
 
@@ -54,14 +55,63 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const documents = useGuestDocuments((state) => state.documents);
   const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
   const createDocument = useGuestDocuments((state) => state.createDocument);
+  const upsertDocuments = useGuestDocuments((state) => state.upsertDocuments);
   const userName = useAiSettings((state) => state.userName);
+  const { sessionId } = useTelegramSession();
   const workspaceOwnerName = hasMounted ? userName.trim() || "Guest" : "Guest";
   const workspaceOwnerInitial =
     workspaceOwnerName.charAt(0).toUpperCase() || "G";
+  const isMobileLayout = hasMounted && isMobile;
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!hasHydrated || !sessionId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const syncTelegramSessionNotes = async () => {
+      try {
+        const response = await fetch(
+          `/api/telegram/session-notes?sessionId=${encodeURIComponent(sessionId)}`,
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          notes?: Array<{
+            id: string;
+            title: string;
+            content?: string;
+            createdAt: number;
+            updatedAt: number;
+          }>;
+        };
+
+        if (isCancelled || !Array.isArray(payload.notes)) {
+          return;
+        }
+
+        upsertDocuments(payload.notes);
+      } catch {
+        // Ignore sync errors; local guest notes remain available.
+      }
+    };
+
+    void syncTelegramSessionNotes();
+    const intervalId = window.setInterval(syncTelegramSessionNotes, 15_000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [hasHydrated, sessionId, upsertDocuments]);
 
   const activeDocumentId = useMemo(() => {
     const match = pathname.match(/^\/documents\/(.+)$/);
@@ -322,7 +372,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
 
   return (
     <div className="flex h-full bg-[#fbfaf8] text-foreground dark:bg-[#191919]">
-      {isMobile ? (
+      {isMobileLayout ? (
         <Dialog open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
           <DialogContent className="h-[calc(100%-1.5rem)] w-[calc(100%-1.5rem)] max-w-none overflow-hidden rounded-[2rem] p-0 sm:max-w-none">
             {navigationContent}
@@ -338,7 +388,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         <header className="sticky top-0 z-40 border-b border-black/5 bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10 dark:bg-[#191919]/90">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              {isMobile && (
+              {isMobileLayout && (
                 <Button
                   variant="ghost"
                   size="icon"

@@ -3,14 +3,15 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-export const WALLE_AI_PROVIDERS = ["gemini", "ollama"] as const;
+export const WALLE_AI_PROVIDERS = ["puter", "gemini", "ollama"] as const;
 
 export type WallEAiProvider = (typeof WALLE_AI_PROVIDERS)[number];
 
-export const DEFAULT_WALLE_PROVIDER: WallEAiProvider = "gemini";
-export const DEFAULT_WALLE_CLOUD_MODEL = "gemini-3-flash-preview";
+export const DEFAULT_WALLE_PROVIDER: WallEAiProvider = "puter";
+export const DEFAULT_WALLE_PUTER_MODEL = "gpt-5-nano";
+export const DEFAULT_WALLE_GEMINI_MODEL = "gemini-3-flash-preview";
 export const DEFAULT_WALLE_LOCAL_MODEL = "qwen3:4b";
-export const DEFAULT_WALLE_MODEL = DEFAULT_WALLE_CLOUD_MODEL;
+export const DEFAULT_WALLE_MODEL = DEFAULT_WALLE_PUTER_MODEL;
 export const DEFAULT_WALLE_OLLAMA_BASE_URL = "http://localhost:11434";
 
 const normalizeSetting = (value: string | undefined) => value?.trim() ?? "";
@@ -31,9 +32,15 @@ const normalizeProvider = (
 };
 
 export const getDefaultModelForProvider = (provider: WallEAiProvider) => {
-  return provider === "ollama"
-    ? DEFAULT_WALLE_LOCAL_MODEL
-    : DEFAULT_WALLE_CLOUD_MODEL;
+  if (provider === "ollama") {
+    return DEFAULT_WALLE_LOCAL_MODEL;
+  }
+
+  if (provider === "gemini") {
+    return DEFAULT_WALLE_GEMINI_MODEL;
+  }
+
+  return DEFAULT_WALLE_PUTER_MODEL;
 };
 
 export type AiSettingsSnapshot = {

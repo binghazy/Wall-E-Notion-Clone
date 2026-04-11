@@ -39,9 +39,13 @@ type MemoryMessage = {
   content: string;
 };
 
+const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{16,80}$/;
+
 declare global {
   // eslint-disable-next-line no-var
   var __walleTelegramMemory: Map<string, MemoryMessage[]> | undefined;
+  // eslint-disable-next-line no-var
+  var __walleTelegramSessionLinks: Map<string, string> | undefined;
 }
 
 const getMemoryStore = () => {
@@ -50,6 +54,14 @@ const getMemoryStore = () => {
   }
 
   return globalThis.__walleTelegramMemory;
+};
+
+const getSessionLinksStore = () => {
+  if (!globalThis.__walleTelegramSessionLinks) {
+    globalThis.__walleTelegramSessionLinks = new Map<string, string>();
+  }
+
+  return globalThis.__walleTelegramSessionLinks;
 };
 
 const getBotToken = () => process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -182,11 +194,13 @@ const trimMemory = (messages: MemoryMessage[]) => {
 
 const runAssistantTurn = async ({
   chatId,
+  sessionId,
   userText,
   displayName,
   request,
 }: {
   chatId: number;
+  sessionId: string;
   userText: string;
   displayName?: string;
   request: Request;
@@ -231,10 +245,14 @@ const runAssistantTurn = async ({
         }),
         execute: async ({ title }) => {
           const cleanedTitle = title.trim() || "Untitled";
-          const documentId = (await convex.mutation("documents:create" as any, {
-            title: cleanedTitle,
-            parentDocument: undefined,
-          })) as string;
+          const documentId = (await convex.mutation(
+            "documents:createFromTelegram" as any,
+            {
+              sessionId,
+              title: cleanedTitle,
+              content: undefined,
+            },
+          )) as string;
           const url = appBaseUrl
             ? `${appBaseUrl}/documents/${documentId}`
             : `/documents/${documentId}`;
@@ -265,16 +283,27 @@ const runAssistantTurn = async ({
   return assistantText;
 };
 
+const resolveSessionCommandArgument = (text: string) => {
+  const remainder = text
+    .replace(/^\/session(?:@\S+)?/i, "")
+    .trim();
+
+  return remainder;
+};
+
 const handleCommand = async ({
   botToken,
   chatId,
-  command,
+  text,
 }: {
   botToken: string;
   chatId: number;
-  command: string;
+  text: string;
 }) => {
+  const [command] = text.split(/\s+/, 1);
   const normalized = command.toLowerCase();
+  const chatKey = String(chatId);
+  const sessionLinks = getSessionLinksStore();
 
   if (normalized === "/start") {
     await sendTelegramMessage(
@@ -282,16 +311,64 @@ const handleCommand = async ({
       chatId,
       [
         "Wall-E AI Telegram assistant is live.",
-        "Tell me what you need, and I can create notes for you automatically.",
+        "First, link this chat to your app session ID:",
+        "/session YOUR_SESSION_ID",
+        "",
+        "You can find your session ID on the app home screen in guest mode.",
         "Commands:",
+        "/session <id> - link this chat",
+        "/unlink - remove current link",
         "/reset - clear chat memory",
       ].join("\n"),
     );
     return true;
   }
 
+  if (normalized === "/session") {
+    const sessionId = resolveSessionCommandArgument(text);
+
+    if (!sessionId) {
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "Send your code like this:\n/session YOUR_SESSION_ID",
+      );
+      return true;
+    }
+
+    if (!SESSION_ID_PATTERN.test(sessionId)) {
+      await sendTelegramMessage(
+        botToken,
+        chatId,
+        "That session ID format is invalid. Copy it directly from the app and try again.",
+      );
+      return true;
+    }
+
+    sessionLinks.set(chatKey, sessionId);
+    getMemoryStore().delete(chatKey);
+
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "Session linked. You can now ask me to create and organize notes for this workspace.",
+    );
+    return true;
+  }
+
+  if (normalized === "/unlink") {
+    sessionLinks.delete(chatKey);
+    getMemoryStore().delete(chatKey);
+    await sendTelegramMessage(
+      botToken,
+      chatId,
+      "Session unlinked. Use /session YOUR_SESSION_ID to connect again.",
+    );
+    return true;
+  }
+
   if (normalized === "/reset") {
-    getMemoryStore().delete(String(chatId));
+    getMemoryStore().delete(chatKey);
     await sendTelegramMessage(
       botToken,
       chatId,
@@ -301,6 +378,24 @@ const handleCommand = async ({
   }
 
   return false;
+};
+
+const getLinkedSessionId = (chatId: number) => {
+  const chatKey = String(chatId);
+  return getSessionLinksStore().get(chatKey);
+};
+
+const promptForSessionLink = async (botToken: string, chatId: number) => {
+  await sendTelegramMessage(
+    botToken,
+    chatId,
+    [
+      "Before I can create notes, link this chat to your app:",
+      "/session YOUR_SESSION_ID",
+      "",
+      "Open the app home screen to copy your session ID.",
+    ].join("\n"),
+  );
 };
 
 export async function POST(request: Request) {
@@ -338,14 +433,20 @@ export async function POST(request: Request) {
     return Response.json({ ok: true });
   }
 
-  const firstWord = text.split(/\s+/, 1)[0];
   const handledCommand = await handleCommand({
     botToken,
     chatId,
-    command: firstWord,
+    text,
   });
 
   if (handledCommand) {
+    return Response.json({ ok: true });
+  }
+
+  const linkedSessionId = getLinkedSessionId(chatId);
+
+  if (!linkedSessionId) {
+    await promptForSessionLink(botToken, chatId);
     return Response.json({ ok: true });
   }
 
@@ -354,6 +455,7 @@ export async function POST(request: Request) {
   try {
     const assistantReply = await runAssistantTurn({
       chatId,
+      sessionId: linkedSessionId,
       userText: text,
       displayName,
       request,
