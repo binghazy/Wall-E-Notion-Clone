@@ -4,8 +4,10 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 export const WALLE_AI_PROVIDERS = ["puter", "gemini", "ollama"] as const;
+export const WALLE_PUTER_MODELS = ["gpt-5-nano", "gpt-5.4-nano"] as const;
 
 export type WallEAiProvider = (typeof WALLE_AI_PROVIDERS)[number];
+export type WallEPuterModel = (typeof WALLE_PUTER_MODELS)[number];
 
 export const DEFAULT_WALLE_PROVIDER: WallEAiProvider = "puter";
 export const DEFAULT_WALLE_PUTER_MODEL = "gpt-5-nano";
@@ -15,6 +17,10 @@ export const DEFAULT_WALLE_MODEL = DEFAULT_WALLE_PUTER_MODEL;
 export const DEFAULT_WALLE_OLLAMA_BASE_URL = "http://localhost:11434";
 
 const normalizeSetting = (value: string | undefined) => value?.trim() ?? "";
+
+const isValidPuterModel = (value: string): value is WallEPuterModel => {
+  return WALLE_PUTER_MODELS.includes(value as WallEPuterModel);
+};
 
 const normalizeProvider = (
   value: string | undefined,
@@ -43,6 +49,21 @@ export const getDefaultModelForProvider = (provider: WallEAiProvider) => {
   return DEFAULT_WALLE_PUTER_MODEL;
 };
 
+const normalizeModelForProvider = (
+  provider: WallEAiProvider,
+  value: string | undefined,
+) => {
+  const normalizedModel = normalizeSetting(value);
+
+  if (provider === "puter") {
+    return isValidPuterModel(normalizedModel)
+      ? normalizedModel
+      : DEFAULT_WALLE_PUTER_MODEL;
+  }
+
+  return normalizedModel || getDefaultModelForProvider(provider);
+};
+
 export type AiSettingsSnapshot = {
   provider: WallEAiProvider;
   apiKey: string;
@@ -64,8 +85,7 @@ export const getResolvedAiSettings = (settings: Partial<AiSettingsSnapshot>) => 
   return {
     provider,
     apiKey: normalizeSetting(settings.apiKey),
-    model:
-      normalizeSetting(settings.model) || getDefaultModelForProvider(provider),
+    model: normalizeModelForProvider(provider, settings.model),
     ollamaBaseUrl:
       normalizeSetting(settings.ollamaBaseUrl) || DEFAULT_WALLE_OLLAMA_BASE_URL,
     userName: normalizeSetting(settings.userName),
@@ -83,34 +103,33 @@ export const useAiSettings = create<AiSettingsStore>()(
       hasHydrated: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
       updateSettings: (updates) =>
-        set((state) => ({
-          provider:
+        set((state) => {
+          const provider =
             updates.provider !== undefined
               ? normalizeProvider(updates.provider)
-              : state.provider,
-          apiKey:
-            updates.apiKey !== undefined
-              ? normalizeSetting(updates.apiKey)
-              : state.apiKey,
-          model:
-            updates.model !== undefined
-              ? normalizeSetting(updates.model) ||
-                getDefaultModelForProvider(
-                  updates.provider !== undefined
-                    ? normalizeProvider(updates.provider)
-                    : state.provider,
-                )
-              : state.model,
-          ollamaBaseUrl:
-            updates.ollamaBaseUrl !== undefined
-              ? normalizeSetting(updates.ollamaBaseUrl) ||
-                DEFAULT_WALLE_OLLAMA_BASE_URL
-              : state.ollamaBaseUrl,
-          userName:
-            updates.userName !== undefined
-              ? normalizeSetting(updates.userName)
-              : state.userName,
-        })),
+              : state.provider;
+
+          return {
+            provider,
+            apiKey:
+              updates.apiKey !== undefined
+                ? normalizeSetting(updates.apiKey)
+                : state.apiKey,
+            model:
+              updates.model !== undefined
+                ? normalizeModelForProvider(provider, updates.model)
+                : normalizeModelForProvider(provider, state.model),
+            ollamaBaseUrl:
+              updates.ollamaBaseUrl !== undefined
+                ? normalizeSetting(updates.ollamaBaseUrl) ||
+                  DEFAULT_WALLE_OLLAMA_BASE_URL
+                : state.ollamaBaseUrl,
+            userName:
+              updates.userName !== undefined
+                ? normalizeSetting(updates.userName)
+                : state.userName,
+          };
+        }),
       resetSettings: () =>
         set({
           provider: DEFAULT_WALLE_PROVIDER,

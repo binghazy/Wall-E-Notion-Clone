@@ -193,11 +193,18 @@ const openAICompatibleToolCallFetch: typeof fetch = async (input, init) => {
 };
 
 const WALLE_AI_PROVIDERS = ["puter", "gemini", "ollama"] as const;
+const WALLE_PUTER_MODELS = ["gpt-5-nano", "gpt-5.4-nano"] as const;
 
 export type WallEAiProvider = (typeof WALLE_AI_PROVIDERS)[number];
+type WallEPuterModel = (typeof WALLE_PUTER_MODELS)[number];
 
 const DEFAULT_WALLE_AI_PROVIDER: WallEAiProvider = "puter";
-const DEFAULT_PUTER_MODEL = process.env.PUTER_MODEL ?? "gpt-5-nano";
+const envPuterModel = process.env.PUTER_MODEL?.trim();
+const DEFAULT_PUTER_MODEL: WallEPuterModel =
+  envPuterModel &&
+  WALLE_PUTER_MODELS.includes(envPuterModel as WallEPuterModel)
+    ? (envPuterModel as WallEPuterModel)
+    : "gpt-5-nano";
 const DEFAULT_GEMINI_MODEL =
   process.env.GEMINI_MODEL ?? "gemini-3-flash-preview";
 const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen3:4b";
@@ -282,6 +289,19 @@ const normalizeSetting = (value: string | undefined) => {
   const trimmedValue = value?.trim();
 
   return trimmedValue ? trimmedValue : undefined;
+};
+
+const getResolvedPuterModel = (settings?: WallEAiRuntimeSettings) => {
+  const requestedModel = normalizeSetting(settings?.model);
+
+  if (
+    requestedModel &&
+    WALLE_PUTER_MODELS.includes(requestedModel as WallEPuterModel)
+  ) {
+    return requestedModel;
+  }
+
+  return DEFAULT_PUTER_MODEL;
 };
 
 export const resolveWallEAiRuntimeSettings = (
@@ -438,6 +458,7 @@ export const getWallEBlockNoteSystemPrompt = (
 Formatting requirements for document content:
 - Use **bold text** for important labels and key points.
 - Use Markdown checklists (\`- [ ] item\`) when tasks or action items are present.
+- For actionable items in BlockNote, use checklist-style content so users can track completion.
 - Use Markdown tables when showing schedules, comparisons, plans, or structured data.
 `;
 
@@ -464,12 +485,12 @@ Ollama stability mode:
 
 export const getWallEChatModel = (settings?: WallEAiRuntimeSettings) => {
   const provider = getWallEAiProvider(settings);
-  const modelId = settings?.model ||
-    (provider === "ollama"
-      ? DEFAULT_OLLAMA_MODEL
+  const modelId =
+    provider === "ollama"
+      ? settings?.model || DEFAULT_OLLAMA_MODEL
       : provider === "gemini"
-        ? DEFAULT_GEMINI_MODEL
-        : DEFAULT_PUTER_MODEL);
+        ? settings?.model || DEFAULT_GEMINI_MODEL
+        : getResolvedPuterModel(settings);
 
   if (provider === "ollama") {
     const ollamaBaseUrl = getResolvedOllamaBaseUrl(settings);

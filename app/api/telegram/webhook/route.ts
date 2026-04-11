@@ -44,8 +44,6 @@ const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{16,80}$/;
 declare global {
   // eslint-disable-next-line no-var
   var __walleTelegramMemory: Map<string, MemoryMessage[]> | undefined;
-  // eslint-disable-next-line no-var
-  var __walleTelegramSessionLinks: Map<string, string> | undefined;
 }
 
 const getMemoryStore = () => {
@@ -54,14 +52,6 @@ const getMemoryStore = () => {
   }
 
   return globalThis.__walleTelegramMemory;
-};
-
-const getSessionLinksStore = () => {
-  if (!globalThis.__walleTelegramSessionLinks) {
-    globalThis.__walleTelegramSessionLinks = new Map<string, string>();
-  }
-
-  return globalThis.__walleTelegramSessionLinks;
 };
 
 const getBotToken = () => process.env.TELEGRAM_BOT_TOKEN?.trim();
@@ -198,12 +188,14 @@ const runAssistantTurn = async ({
   userText,
   displayName,
   request,
+  convex,
 }: {
   chatId: number;
   sessionId: string;
   userText: string;
   displayName?: string;
   request: Request;
+  convex: ConvexHttpClient;
 }) => {
   const aiSettings = {};
 
@@ -217,7 +209,6 @@ const runAssistantTurn = async ({
   const historyMessages = trimMemory(existingHistory);
   const model = getWallEChatModel(aiSettings);
   const providerOptions = getWallEProviderOptions(aiSettings);
-  const convex = getConvexClient();
   const appBaseUrl = getAppBaseUrl(request);
 
   const response = await generateText({
@@ -291,19 +282,24 @@ const resolveSessionCommandArgument = (text: string) => {
   return remainder;
 };
 
+const getTelegramCommandName = (text: string) => {
+  const [command = ""] = text.trim().split(/\s+/, 1);
+  return command.toLowerCase().replace(/@\S+$/, "");
+};
+
 const handleCommand = async ({
   botToken,
   chatId,
   text,
+  convex,
 }: {
   botToken: string;
   chatId: number;
   text: string;
+  convex: ConvexHttpClient;
 }) => {
-  const [command] = text.split(/\s+/, 1);
-  const normalized = command.toLowerCase();
+  const normalized = getTelegramCommandName(text);
   const chatKey = String(chatId);
-  const sessionLinks = getSessionLinksStore();
 
   if (normalized === "/start") {
     await sendTelegramMessage(
@@ -345,7 +341,10 @@ const handleCommand = async ({
       return true;
     }
 
-    sessionLinks.set(chatKey, sessionId);
+    await convex.mutation("documents:upsertTelegramSessionLink" as any, {
+      chatId: chatKey,
+      sessionId,
+    });
     getMemoryStore().delete(chatKey);
 
     await sendTelegramMessage(
@@ -357,7 +356,9 @@ const handleCommand = async ({
   }
 
   if (normalized === "/unlink") {
-    sessionLinks.delete(chatKey);
+    await convex.mutation("documents:removeTelegramSessionLink" as any, {
+      chatId: chatKey,
+    });
     getMemoryStore().delete(chatKey);
     await sendTelegramMessage(
       botToken,
@@ -380,9 +381,17 @@ const handleCommand = async ({
   return false;
 };
 
-const getLinkedSessionId = (chatId: number) => {
+const getLinkedSessionId = async (
+  chatId: number,
+  convex: ConvexHttpClient,
+) => {
   const chatKey = String(chatId);
-  return getSessionLinksStore().get(chatKey);
+  const sessionId = (await convex.query(
+    "documents:getTelegramSessionLink" as any,
+    { chatId: chatKey },
+  )) as string | null;
+
+  return sessionId;
 };
 
 const promptForSessionLink = async (botToken: string, chatId: number) => {
@@ -406,6 +415,7 @@ export async function POST(request: Request) {
   }
 
   const expectedSecret = getWebhookSecret();
+  const convex = getConvexClient();
 
   if (expectedSecret) {
     const incomingSecret = request.headers.get(
@@ -437,13 +447,14 @@ export async function POST(request: Request) {
     botToken,
     chatId,
     text,
+    convex,
   });
 
   if (handledCommand) {
     return Response.json({ ok: true });
   }
 
-  const linkedSessionId = getLinkedSessionId(chatId);
+  const linkedSessionId = await getLinkedSessionId(chatId, convex);
 
   if (!linkedSessionId) {
     await promptForSessionLink(botToken, chatId);
@@ -459,6 +470,7 @@ export async function POST(request: Request) {
       userText: text,
       displayName,
       request,
+      convex,
     });
 
     await sendTelegramMessage(botToken, chatId, assistantReply);

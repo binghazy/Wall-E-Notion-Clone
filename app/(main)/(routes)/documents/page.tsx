@@ -7,23 +7,61 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { AiSettingsDialog } from "@/components/ai-settings-dialog";
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useTelegramSession } from "@/hooks/use-telegram-session";
 import { Button } from "@/components/ui/button";
 
+const AI_SETTINGS_ONBOARDING_STORAGE_PREFIX =
+  "walle-ai-settings-onboarding-complete";
+
 const DocumentsPage = () => {
   const userName = useAiSettings((state) => state.userName);
   const { sessionId, telegramCommand } = useTelegramSession();
   const [hasMounted, setHasMounted] = useState(false);
+  const [isAiSettingsDialogOpen, setIsAiSettingsDialogOpen] = useState(false);
+  const [isAiSettingsOnboardingFlow, setIsAiSettingsOnboardingFlow] =
+    useState(false);
+
+  const onboardingIdentity = "guest";
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!hasMounted) {
+      return;
+    }
+
+    const storageKey = `${AI_SETTINGS_ONBOARDING_STORAGE_PREFIX}:${onboardingIdentity}`;
+    const hasCompletedOnboarding =
+      window.localStorage.getItem(storageKey) === "true";
+    const hasSavedUserName = userName.trim().length > 0;
+
+    if (hasCompletedOnboarding && hasSavedUserName) {
+      return;
+    }
+
+    setIsAiSettingsOnboardingFlow(true);
+    setIsAiSettingsDialogOpen(true);
+  }, [hasMounted, onboardingIdentity, userName]);
+
   const resolvedUserName = hasMounted ? userName.trim() || "Guest" : "Guest";
   const firstName = resolvedUserName;
   const workspaceName = `${resolvedUserName}'s workspace`;
+
+  const handleAiSettingsSaved = () => {
+    if (!isAiSettingsOnboardingFlow) {
+      return;
+    }
+
+    const storageKey = `${AI_SETTINGS_ONBOARDING_STORAGE_PREFIX}:${onboardingIdentity}`;
+    window.localStorage.setItem(storageKey, "true");
+    setIsAiSettingsOnboardingFlow(false);
+  };
+
   const handleCopyTelegramCommand = async () => {
     if (!telegramCommand) {
       return;
@@ -38,15 +76,24 @@ const DocumentsPage = () => {
   };
 
   return (
-    <DocumentsHomeContent
-      firstName={firstName}
-      workspaceName={workspaceName}
-      mode="guest"
-      sessionId={sessionId}
-      telegramCommand={telegramCommand}
-      onCopyTelegramCommand={handleCopyTelegramCommand}
-      onCreate={useGuestCreateDocument()}
-    />
+    <>
+      <AiSettingsDialog
+        open={isAiSettingsDialogOpen}
+        onOpenChange={setIsAiSettingsDialogOpen}
+        onSave={handleAiSettingsSaved}
+        requireName={isAiSettingsOnboardingFlow}
+        hideTrigger
+      />
+      <DocumentsHomeContent
+        firstName={firstName}
+        workspaceName={workspaceName}
+        mode="guest"
+        sessionId={sessionId}
+        telegramCommand={telegramCommand}
+        onCopyTelegramCommand={handleCopyTelegramCommand}
+        onCreate={useGuestCreateDocument()}
+      />
+    </>
   );
 };
 

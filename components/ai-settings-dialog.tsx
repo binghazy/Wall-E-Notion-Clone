@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import {
   DEFAULT_WALLE_OLLAMA_BASE_URL,
   DEFAULT_WALLE_PROVIDER,
+  WALLE_PUTER_MODELS,
   getDefaultModelForProvider,
   useAiSettings,
 } from "@/hooks/use-ai-settings";
@@ -37,6 +38,7 @@ type AiSettingsDialogProps = {
   onOpenChange?: (open: boolean) => void;
   onSave?: () => void;
   requireName?: boolean;
+  hideTrigger?: boolean;
 };
 
 export const AiSettingsDialog = ({
@@ -46,6 +48,7 @@ export const AiSettingsDialog = ({
   onOpenChange,
   onSave,
   requireName = false,
+  hideTrigger = false,
 }: AiSettingsDialogProps) => {
   const provider = useAiSettings((state) => state.provider);
   const apiKey = useAiSettings((state) => state.apiKey);
@@ -89,13 +92,15 @@ export const AiSettingsDialog = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Button variant="outline" size="icon" aria-label="Open AI settings">
-            <Settings2 className="h-4 w-4" />
-          </Button>
-        )}
-      </DialogTrigger>
+      {!hideTrigger ? (
+        <DialogTrigger asChild>
+          {trigger ?? (
+            <Button variant="outline" size="icon" aria-label="Open AI settings">
+              <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="max-w-xl rounded-3xl border px-0 py-0">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="flex items-center gap-2">
@@ -178,17 +183,34 @@ export const AiSettingsDialog = ({
 
           <div className="space-y-2">
             <Label htmlFor="walle-model">Model</Label>
-            <Input
-              id="walle-model"
-              value={draftModel}
-              onChange={(event) => setDraftModel(event.target.value)}
-              placeholder={getDefaultModelForProvider(draftProvider)}
-              className="h-11 rounded-xl"
-            />
+            {draftProvider === "puter" ? (
+              <select
+                id="walle-model"
+                value={draftModel}
+                onChange={(event) => setDraftModel(event.target.value)}
+                className="h-11 w-full rounded-xl border bg-background px-3 text-sm"
+              >
+                {WALLE_PUTER_MODELS.map((modelOption) => (
+                  <option key={modelOption} value={modelOption}>
+                    {modelOption}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                id="walle-model"
+                value={draftModel}
+                onChange={(event) => setDraftModel(event.target.value)}
+                placeholder={getDefaultModelForProvider(draftProvider)}
+                className="h-11 rounded-xl"
+              />
+            )}
             <p className="text-xs text-muted-foreground">
               {draftProvider === "ollama"
                 ? "Example: `qwen3:4b`, `llama3.1:8b`, or another local Ollama model tag."
-                : "Examples: `claude-sonnet-4-5`, `gemini-2.5-flash-lite`, `gpt-5-nano`, `gpt-5.4-nano`."}
+                : draftProvider === "gemini"
+                  ? "Gemini examples: `gemini-2.5-flash-lite`, `gemini-2.5-flash`, `gemini-2.5-pro`."
+                  : "Wall-E cloud models: `gpt-5-nano`, `gpt-5.4-nano`."}
             </p>
           </div>
 
@@ -212,7 +234,7 @@ export const AiSettingsDialog = ({
             </div>
           ) : draftProvider === "puter" ? (
             <div className="rounded-2xl border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-              Wall-E auth is managed on the server using environment variables.
+              Wall-E auth is managed, Now it is ready to use.
             </div>
           ) : (
             <div className="space-y-2">
