@@ -35,8 +35,8 @@ interface EditorProps {
   editable?: boolean;
 }
 
-const CLOUD_AI_WRITING_STALL_TIMEOUT_MS = 18_000;
-const LOCAL_AI_WRITING_STALL_TIMEOUT_MS = 45_000;
+const CLOUD_AI_WRITING_STALL_TIMEOUT_MS = 1_000;
+const LOCAL_AI_WRITING_STALL_TIMEOUT_MS = 1_000;
 
 const parseInitialContent = (initialContent?: string) => {
   if (!initialContent) {
