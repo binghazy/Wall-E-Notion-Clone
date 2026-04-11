@@ -62,13 +62,15 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const workspaceOwnerInitial =
     workspaceOwnerName.charAt(0).toUpperCase() || "G";
   const isMobileLayout = hasMounted && isMobile;
+  const isDocumentsReady = hasMounted && hasHydrated;
+  const stablePathname = hasMounted ? pathname : "/documents";
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
 
   useEffect(() => {
-    if (!hasHydrated || !sessionId) {
+    if (!isDocumentsReady || !sessionId) {
       return;
     }
 
@@ -91,6 +93,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
             content?: string;
             createdAt: number;
             updatedAt: number;
+            source?: "local" | "telegram";
           }>;
         };
 
@@ -111,17 +114,22 @@ export const GuestShell = ({ children }: GuestShellProps) => {
       isCancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [hasHydrated, sessionId, upsertDocuments]);
+  }, [isDocumentsReady, sessionId, upsertDocuments]);
 
   const activeDocumentId = useMemo(() => {
-    const match = pathname.match(/^\/documents\/(.+)$/);
+    if (!isDocumentsReady) {
+      return undefined;
+    }
+
+    const match = stablePathname.match(/^\/documents\/(.+)$/);
 
     return match?.[1];
-  }, [pathname]);
+  }, [isDocumentsReady, stablePathname]);
 
-  const activeDocument = documents.find(
-    (document) => document.id === activeDocumentId,
-  );
+  const activeDocument =
+    isDocumentsReady && activeDocumentId
+      ? documents.find((document) => document.id === activeDocumentId)
+      : undefined;
 
   const handleCreateDocument = () => {
     const documentId = createDocument();
@@ -149,7 +157,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
       label: "Home",
       icon: Home,
       href: "/documents",
-      isActive: pathname === "/documents",
+      isActive: stablePathname === "/documents",
     },
     {
       label: "Meetings",
@@ -319,20 +327,20 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                 Add a page
               </button>
 
-              {!hasHydrated && (
+              {!isDocumentsReady && (
                 <div className="rounded-xl border border-dashed border-black/10 px-3 py-4 text-sm text-muted-foreground dark:border-white/10">
                   Loading pages...
                 </div>
               )}
 
-              {hasHydrated && documents.length === 0 && (
+              {isDocumentsReady && documents.length === 0 && (
                 <div className="rounded-xl border border-dashed border-black/10 px-3 py-4 text-sm text-muted-foreground dark:border-white/10">
                   No pages yet.
                 </div>
               )}
 
               <div className="space-y-1">
-                {hasHydrated &&
+                {isDocumentsReady &&
                   documents.map((document) => (
                     <Link
                       key={document.id}

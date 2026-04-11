@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 
 const AI_SETTINGS_ONBOARDING_STORAGE_PREFIX =
   "walle-ai-settings-onboarding-complete";
+const TELEGRAM_LOGO_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/8/83/Telegram_2019_Logo.svg";
 
 const DocumentsPage = () => {
   const userName = useAiSettings((state) => state.userName);
@@ -204,7 +206,13 @@ const DocumentsHomeContent = ({
           {isGuest && (
             <div className="rounded-3xl border border-sky-200/80 bg-sky-100 p-6 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/30">
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold text-sky-900 dark:text-sky-100">
+                <h2 className="flex items-center gap-2 text-sm font-semibold text-sky-900 dark:text-sky-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={TELEGRAM_LOGO_URL}
+                    alt="Telegram"
+                    className="h-4 w-4 shrink-0"
+                  />
                   Telegram Link
                 </h2>
                 <Button

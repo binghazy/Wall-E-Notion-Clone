@@ -4,9 +4,10 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, FileText, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
+import { useEditorStore } from "@/hooks/use-editor-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +15,7 @@ import {
   getAutoDocumentTitleFromContent,
   isUntitledDocumentTitle,
 } from "@/lib/document-title";
+import { flashWallEAiHighlight } from "@/lib/walle-ai-highlight";
 
 type GuestDocumentPageProps = {
   documentId: string;
@@ -27,6 +29,8 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   );
   const updateDocument = useGuestDocuments((state) => state.updateDocument);
   const removeDocument = useGuestDocuments((state) => state.removeDocument);
+  const editor = useEditorStore((state) => state.editor);
+  const highlightedSnapshotKeyRef = useRef<string | null>(null);
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -38,6 +42,35 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   useEffect(() => {
     setTitle(document?.title ?? "");
   }, [document?.title]);
+
+  useEffect(() => {
+    if (!editor || !document || document.source !== "telegram") {
+      return;
+    }
+
+    const snapshotKey = document.id;
+
+    if (highlightedSnapshotKeyRef.current === snapshotKey) {
+      return;
+    }
+
+    const blockIds = Array.isArray(editor.document)
+      ? editor.document
+          .map((block) =>
+            block && typeof block === "object" && "id" in block
+              ? (block.id as unknown)
+              : undefined,
+          )
+          .filter((blockId): blockId is string => typeof blockId === "string")
+      : [];
+
+    if (blockIds.length === 0) {
+      return;
+    }
+
+    flashWallEAiHighlight(editor, blockIds);
+    highlightedSnapshotKeyRef.current = snapshotKey;
+  }, [document, editor]);
 
   const handleDelete = () => {
     removeDocument(documentId);

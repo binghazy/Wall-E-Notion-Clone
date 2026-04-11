@@ -9,6 +9,7 @@ export type GuestDocument = {
   content?: string;
   createdAt: number;
   updatedAt: number;
+  source?: "local" | "telegram";
 };
 
 type GuestDocumentUpdates = Partial<Pick<GuestDocument, "title" | "content">>;
@@ -50,6 +51,7 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
           content: undefined,
           createdAt: timestamp,
           updatedAt: timestamp,
+          source: "local",
         };
 
         set((state) => ({

@@ -44,6 +44,7 @@ export async function GET(request: Request) {
         content: document.content,
         createdAt: document._creationTime,
         updatedAt: document._creationTime,
+        source: "telegram" as const,
       })),
     });
   } catch (error) {

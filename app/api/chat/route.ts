@@ -22,7 +22,7 @@ import {
   WallEChatMessage,
 } from "@/lib/notion-blocks";
 
-export const maxDuration = 90;
+export const maxDuration = 180;
 
 const insertNotionBlocksTool = tool({
   description: insertNotionBlocksToolDescription,
@@ -75,9 +75,9 @@ export async function POST(request: Request) {
     const provider = getWallEAiProvider(aiSettings);
     const isLocalProvider = provider === "ollama";
     // Keep local responses bounded to avoid long-running "thinking" loops.
-    const abortSignal = AbortSignal.timeout(isLocalProvider ? 90_000 : 30_000);
-    const maxOutputTokens = isLocalProvider ? 8000 : undefined;
-    const blockNoteMaxOutputTokens = isLocalProvider ? 2000 : undefined;
+    const abortSignal = AbortSignal.timeout(isLocalProvider ? 180_000 : 90_000);
+    const maxOutputTokens = isLocalProvider ? 12_000 : 8_000;
+    const blockNoteMaxOutputTokens = isLocalProvider ? 8_000 : 6_000;
 
     const model = getWallEChatModel(aiSettings);
     const providerOptions = getWallEProviderOptions(aiSettings);

@@ -151,6 +151,49 @@ export const createFromTelegram = mutation({
   },
 });
 
+export const updateFromTelegram = mutation({
+  args: {
+    sessionId: v.string(),
+    id: v.id("documents"),
+    title: v.optional(v.string()),
+    content: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = getTelegramSessionUserId(args.sessionId);
+    const existingDocument = await ctx.db.get(args.id);
+
+    if (!existingDocument) {
+      throw new Error("Not found");
+    }
+
+    if (existingDocument.userId !== userId) {
+      throw new Error("Unauthorized");
+    }
+
+    if (existingDocument.isArchived) {
+      throw new Error("Cannot update archived document.");
+    }
+
+    const updates: Partial<Doc<"documents">> = {};
+
+    if (typeof args.title === "string") {
+      updates.title = args.title.trim() || existingDocument.title;
+    }
+
+    if (typeof args.content === "string") {
+      updates.content = args.content;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      throw new Error("Nothing to update.");
+    }
+
+    await ctx.db.patch(args.id, updates);
+
+    return args.id;
+  },
+});
+
 export const upsertTelegramSessionLink = mutation({
   args: {
     chatId: v.string(),
