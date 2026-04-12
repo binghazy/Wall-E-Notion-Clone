@@ -26,6 +26,12 @@ type GuestDocumentPageProps = {
   documentId: string;
 };
 
+type PendingTelegramSync = {
+  incomingContent: string;
+  previousContent: string;
+  receivedAt: number;
+};
+
 const parseSerializedBlocks = (serializedContent?: string): PartialBlock[] => {
   const normalizedContent = serializedContent?.trim();
 
@@ -70,6 +76,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   const editor = useEditorStore((state) => state.editor);
   const highlightedSnapshotKeyRef = useRef<string | null>(null);
   const lastHandledTelegramContentRef = useRef<string | null>(null);
+  const previousDocumentIdRef = useRef<string | null>(null);
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -78,35 +85,33 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
   const [title, setTitle] = useState("");
   const [lastAiSyncAt, setLastAiSyncAt] = useState<number | null>(null);
+  const [pendingTelegramSync, setPendingTelegramSync] =
+    useState<PendingTelegramSync | null>(null);
 
   useEffect(() => {
     setTitle(document?.title ?? "");
   }, [document?.title]);
 
   useEffect(() => {
+    const currentDocumentId = document?.id ?? null;
+
+    if (previousDocumentIdRef.current === currentDocumentId) {
+      return;
+    }
+
+    previousDocumentIdRef.current = currentDocumentId;
     lastHandledTelegramContentRef.current =
       typeof document?.content === "string" ? document.content : "";
-  }, [document?.content, document?.id]);
+    setPendingTelegramSync(null);
+  }, [document]);
 
-  const applyTelegramSyncedContent = useCallback(
+  const applySerializedContentToEditor = useCallback(
     (nextSerializedContent?: string) => {
       if (!editor || !document || document.source !== "telegram") {
-        return;
+        return false;
       }
 
       const normalizedIncomingContent = nextSerializedContent ?? "";
-
-      if (lastHandledTelegramContentRef.current === normalizedIncomingContent) {
-        return;
-      }
-
-      const serializedEditorContent = JSON.stringify(editor.document);
-
-      if (serializedEditorContent === normalizedIncomingContent) {
-        lastHandledTelegramContentRef.current = normalizedIncomingContent;
-        return;
-      }
-
       const nextBlocks = parseSerializedBlocks(normalizedIncomingContent);
       const currentBlockIds = Array.isArray(editor.document)
         ? editor.document
@@ -145,14 +150,81 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
           flashWallEAiHighlight(editor, insertedBlockIds);
         }
 
-        lastHandledTelegramContentRef.current = normalizedIncomingContent;
-        setLastAiSyncAt(Date.now());
+        return true;
       } catch (error) {
         console.error("[GUEST_TELEGRAM_SYNC_APPLY_ERROR]", error);
+        return false;
       }
     },
     [document, editor],
   );
+
+  const confirmPendingTelegramSync = useCallback(() => {
+    if (!pendingTelegramSync) {
+      return;
+    }
+
+    lastHandledTelegramContentRef.current = pendingTelegramSync.incomingContent;
+    setLastAiSyncAt(Date.now());
+    setPendingTelegramSync(null);
+  }, [pendingTelegramSync]);
+
+  const discardPendingTelegramSync = useCallback(() => {
+    if (!pendingTelegramSync || !document) {
+      return;
+    }
+
+    const didRevert = applySerializedContentToEditor(
+      pendingTelegramSync.previousContent,
+    );
+
+    if (didRevert) {
+      updateDocument(document.id, {
+        content: pendingTelegramSync.previousContent,
+      });
+      lastHandledTelegramContentRef.current = pendingTelegramSync.previousContent;
+    }
+
+    setPendingTelegramSync(null);
+  }, [applySerializedContentToEditor, document, pendingTelegramSync, updateDocument]);
+
+  useEffect(() => {
+    if (!pendingTelegramSync) {
+      return;
+    }
+
+    const handleReviewShortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return;
+      }
+
+      const isConfirmShortcut =
+        event.key === "Enter" &&
+        !event.shiftKey &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey;
+
+      if (isConfirmShortcut) {
+        event.preventDefault();
+        event.stopPropagation();
+        confirmPendingTelegramSync();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        discardPendingTelegramSync();
+      }
+    };
+
+    window.addEventListener("keydown", handleReviewShortcut, true);
+
+    return () => {
+      window.removeEventListener("keydown", handleReviewShortcut, true);
+    };
+  }, [confirmPendingTelegramSync, discardPendingTelegramSync, pendingTelegramSync]);
 
   useEffect(() => {
     if (!document || document.source !== "telegram") {
@@ -169,7 +241,31 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
         return;
       }
 
-      applyTelegramSyncedContent(matchingNote.content);
+      if (!editor) {
+        return;
+      }
+
+      const incomingContent = matchingNote.content ?? "";
+      const currentSerializedContent = JSON.stringify(editor.document);
+
+      if (
+        incomingContent === currentSerializedContent ||
+        incomingContent === lastHandledTelegramContentRef.current
+      ) {
+        return;
+      }
+
+      const didPreview = applySerializedContentToEditor(incomingContent);
+
+      if (!didPreview) {
+        return;
+      }
+
+      setPendingTelegramSync({
+        incomingContent,
+        previousContent: currentSerializedContent,
+        receivedAt: Date.now(),
+      });
     };
 
     window.addEventListener(TELEGRAM_NOTES_SYNC_EVENT, handleTelegramSync);
@@ -177,7 +273,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
     return () => {
       window.removeEventListener(TELEGRAM_NOTES_SYNC_EVENT, handleTelegramSync);
     };
-  }, [applyTelegramSyncedContent, document]);
+  }, [applySerializedContentToEditor, document, editor]);
 
   useEffect(() => {
     if (!editor || !document || document.source !== "telegram") {
@@ -284,7 +380,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
           <p className="mt-2 text-sm text-muted-foreground">
             {document.source === "telegram"
-              ? "Synced from Telegram Wall-E bot. New AI edits now appear here automatically."
+              ? "Synced from Telegram Wall-E bot. New AI edits are previewed first, then you confirm with Enter."
               : "This note is saved locally in your browser. Use the AI bubble or type /ai in the note to insert a reply directly."}
             {document.source === "telegram" && lastAiSyncAt
               ? ` Last AI sync at ${new Date(lastAiSyncAt).toLocaleTimeString()}.`
@@ -294,6 +390,33 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
       </div>
 
       <div className="mx-auto max-w-4xl px-6 py-8">
+        {pendingTelegramSync && (
+          <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200">
+            <p className="font-semibold">AI update preview is ready</p>
+            <p className="mt-1">
+              Press <span className="font-semibold">Enter</span> to confirm, or{" "}
+              <span className="font-semibold">Esc</span> to discard this synced
+              draft.
+            </p>
+            <p className="mt-1 text-xs opacity-80">
+              Received at{" "}
+              {new Date(pendingTelegramSync.receivedAt).toLocaleTimeString()}.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <Button size="sm" onClick={confirmPendingTelegramSync}>
+                Confirm (Enter)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={discardPendingTelegramSync}
+              >
+                Discard (Esc)
+              </Button>
+            </div>
+          </div>
+        )}
+
         <Editor
           key={document.id}
           onChange={(content) => {
