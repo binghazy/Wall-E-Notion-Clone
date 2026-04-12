@@ -205,10 +205,21 @@ export const upsertGuestSessionNotes = mutation({
         source: v.optional(v.union(v.literal("local"), v.literal("telegram"))),
       }),
     ),
+    deletedNotes: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          source: v.optional(
+            v.union(v.literal("local"), v.literal("telegram")),
+          ),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = getTelegramSessionUserId(args.sessionId);
     let syncedCount = 0;
+    let deletedCount = 0;
 
     for (const note of args.notes) {
       const externalId = note.id.trim();
@@ -302,7 +313,62 @@ export const upsertGuestSessionNotes = mutation({
       syncedCount += 1;
     }
 
-    return { syncedCount };
+    const normalizedDeletedNotes = args.deletedNotes ?? [];
+    const processedDeletionKeys = new Set<string>();
+
+    for (const note of normalizedDeletedNotes) {
+      const noteId = note.id.trim();
+
+      if (!noteId) {
+        continue;
+      }
+
+      const noteSource = note.source === "telegram" ? "telegram" : "local";
+      const deletionKey = `${noteSource}:${noteId}`;
+
+      if (processedDeletionKeys.has(deletionKey)) {
+        continue;
+      }
+
+      processedDeletionKeys.add(deletionKey);
+
+      if (noteSource === "telegram") {
+        let existingTelegramDocument: Doc<"documents"> | null = null;
+
+        try {
+          existingTelegramDocument = await ctx.db.get(noteId as Id<"documents">);
+        } catch {
+          continue;
+        }
+
+        if (
+          !existingTelegramDocument ||
+          existingTelegramDocument.userId !== userId
+        ) {
+          continue;
+        }
+
+        await ctx.db.delete(existingTelegramDocument._id);
+        deletedCount += 1;
+        continue;
+      }
+
+      const existingLocalDocument = await ctx.db
+        .query("documents")
+        .withIndex("by_user_external_id", (q) =>
+          q.eq("userId", userId).eq("externalId", noteId)
+        )
+        .first();
+
+      if (!existingLocalDocument) {
+        continue;
+      }
+
+      await ctx.db.delete(existingLocalDocument._id);
+      deletedCount += 1;
+    }
+
+    return { syncedCount, deletedCount };
   },
 });
 

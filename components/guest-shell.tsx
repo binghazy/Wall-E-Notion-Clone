@@ -31,7 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { useGuestDocuments } from "@/hooks/use-guest-documents";
+import { useGuestDocuments, type GuestDocumentDeletion } from "@/hooks/use-guest-documents";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useTelegramSession } from "@/hooks/use-telegram-session";
 import {
@@ -60,9 +60,13 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const lastPushedLocalSignatureRef = useRef("");
 
   const documents = useGuestDocuments((state) => state.documents);
+  const pendingDeletions = useGuestDocuments((state) => state.pendingDeletions);
   const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
   const createDocument = useGuestDocuments((state) => state.createDocument);
   const upsertDocuments = useGuestDocuments((state) => state.upsertDocuments);
+  const clearPendingDeletions = useGuestDocuments(
+    (state) => state.clearPendingDeletions,
+  );
   const userName = useAiSettings((state) => state.userName);
   const { sessionId } = useTelegramSession();
   const workspaceOwnerName = hasMounted ? userName.trim() || "Guest" : "Guest";
@@ -90,6 +94,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
 
     const syncLocalSessionNotes = async () => {
       const latestDocuments = useGuestDocuments.getState().documents;
+      const latestPendingDeletions = useGuestDocuments.getState().pendingDeletions;
       const sessionNotes = latestDocuments
         .map((document) => ({
           id: document.id,
@@ -98,7 +103,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
           source: document.source === "telegram" ? ("telegram" as const) : ("local" as const),
         }))
         .sort((a, b) => a.id.localeCompare(b.id));
-      const payloadSignature = JSON.stringify(
+      const notesSignature = JSON.stringify(
         sessionNotes.map((note) => [
           note.id,
           note.title,
@@ -106,11 +111,22 @@ export const GuestShell = ({ children }: GuestShellProps) => {
           note.source,
         ]),
       );
+      const deletionSignature = JSON.stringify(
+        latestPendingDeletions
+          .map((deletion) => [deletion.id, deletion.source ?? "local"])
+          .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+      );
+      const payloadSignature = `${notesSignature}:${deletionSignature}`;
 
       if (payloadSignature === lastPushedLocalSignatureRef.current) {
         return;
       }
 
+      const deletedNotesPayload: GuestDocumentDeletion[] =
+        latestPendingDeletions.map((deletion) => ({
+          id: deletion.id,
+          source: deletion.source,
+        }));
       const response = await fetch("/api/telegram/session-notes", {
         method: "POST",
         headers: {
@@ -119,11 +135,15 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         body: JSON.stringify({
           sessionId,
           notes: sessionNotes,
+          deletedNotes: deletedNotesPayload,
         }),
       });
 
       if (response.ok) {
         lastPushedLocalSignatureRef.current = payloadSignature;
+        clearPendingDeletions(
+          deletedNotesPayload.map((deletion) => deletion.id),
+        );
       }
     };
 
@@ -217,7 +237,13 @@ export const GuestShell = ({ children }: GuestShellProps) => {
       isCancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [isDocumentsReady, sessionId, upsertDocuments]);
+  }, [
+    clearPendingDeletions,
+    isDocumentsReady,
+    pendingDeletions,
+    sessionId,
+    upsertDocuments,
+  ]);
 
   const activeDocumentId = useMemo(() => {
     if (!isDocumentsReady) {

@@ -12,16 +12,23 @@ export type GuestDocument = {
   source?: "local" | "telegram";
 };
 
+export type GuestDocumentDeletion = {
+  id: string;
+  source?: "local" | "telegram";
+};
+
 type GuestDocumentUpdates = Partial<Pick<GuestDocument, "title" | "content">>;
 
 type GuestDocumentsStore = {
   documents: GuestDocument[];
+  pendingDeletions: GuestDocumentDeletion[];
   hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   createDocument: (title?: string) => string;
   upsertDocuments: (documents: GuestDocument[]) => void;
   updateDocument: (id: string, updates: GuestDocumentUpdates) => void;
   removeDocument: (id: string) => void;
+  clearPendingDeletions: (ids: string[]) => void;
 };
 
 const createGuestDocumentId = () => {
@@ -40,6 +47,7 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
   persist(
     (set, get) => ({
       documents: [],
+      pendingDeletions: [],
       hasHydrated: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
       createDocument: (title = "") => {
@@ -66,11 +74,18 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
             return state;
           }
 
+          const pendingDeletionIds = new Set(
+            state.pendingDeletions.map((deletion) => deletion.id),
+          );
           const byId = new Map(
             state.documents.map((document) => [document.id, document]),
           );
 
           for (const incomingDocument of incomingDocuments) {
+            if (pendingDeletionIds.has(incomingDocument.id)) {
+              continue;
+            }
+
             const existingDocument = byId.get(incomingDocument.id);
 
             if (!existingDocument) {
@@ -113,9 +128,44 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
         }));
       },
       removeDocument: (id) => {
-        set((state) => ({
-          documents: state.documents.filter((document) => document.id !== id),
-        }));
+        set((state) => {
+          const existingDocument = state.documents.find(
+            (document) => document.id === id,
+          );
+          const deletionSource: GuestDocumentDeletion["source"] =
+            existingDocument?.source === "telegram" ? "telegram" : "local";
+          const nextPendingDeletions = state.pendingDeletions.some(
+            (deletion) => deletion.id === id,
+          )
+            ? state.pendingDeletions
+            : [
+                ...state.pendingDeletions,
+                {
+                  id,
+                  source: deletionSource,
+                },
+              ];
+
+          return {
+            documents: state.documents.filter((document) => document.id !== id),
+            pendingDeletions: nextPendingDeletions,
+          };
+        });
+      },
+      clearPendingDeletions: (ids) => {
+        if (ids.length === 0) {
+          return;
+        }
+
+        set((state) => {
+          const idsToClear = new Set(ids);
+
+          return {
+            pendingDeletions: state.pendingDeletions.filter(
+              (deletion) => !idsToClear.has(deletion.id),
+            ),
+          };
+        });
       },
     }),
     {
@@ -130,6 +180,7 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
       },
       partialize: (state) => ({
         documents: state.documents,
+        pendingDeletions: state.pendingDeletions,
       }),
     },
   ),

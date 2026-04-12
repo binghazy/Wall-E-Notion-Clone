@@ -19,6 +19,11 @@ type TelegramSessionSyncNote = {
   source?: "local" | "telegram";
 };
 
+type TelegramSessionDeletedNote = {
+  id: string;
+  source?: "local" | "telegram";
+};
+
 const getConvexClient = () => {
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL?.trim();
 
@@ -78,12 +83,14 @@ export async function POST(request: Request) {
   let payload: {
     sessionId?: string;
     notes?: TelegramSessionSyncNote[];
+    deletedNotes?: TelegramSessionDeletedNote[];
   };
 
   try {
     payload = (await request.json()) as {
       sessionId?: string;
       notes?: TelegramSessionSyncNote[];
+      deletedNotes?: TelegramSessionDeletedNote[];
     };
   } catch {
     return Response.json({ error: "Invalid JSON body." }, { status: 400 });
@@ -105,6 +112,16 @@ export async function POST(request: Request) {
     }))
     .filter((note) => note.id.length > 0)
     .slice(0, 500);
+  const deletedNotes = Array.isArray(payload.deletedNotes)
+    ? payload.deletedNotes
+    : [];
+  const normalizedDeletedNotes = deletedNotes
+    .map((note) => ({
+      id: (note.id ?? "").trim(),
+      source: note?.source === "telegram" ? "telegram" : "local",
+    }))
+    .filter((note) => note.id.length > 0)
+    .slice(0, 500);
 
   try {
     const convex = getConvexClient();
@@ -113,14 +130,17 @@ export async function POST(request: Request) {
       {
         sessionId,
         notes: normalizedNotes,
+        deletedNotes: normalizedDeletedNotes,
       },
     )) as {
       syncedCount?: number;
+      deletedCount?: number;
     };
 
     return Response.json({
       ok: true,
       syncedCount: result?.syncedCount ?? 0,
+      deletedCount: result?.deletedCount ?? 0,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
