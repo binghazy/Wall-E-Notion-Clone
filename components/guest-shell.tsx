@@ -57,6 +57,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const [isPagesOpen, setIsPagesOpen] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
   const lastSyncedTelegramContentRef = useRef<Map<string, string>>(new Map());
+  const lastPushedLocalSignatureRef = useRef("");
 
   const documents = useGuestDocuments((state) => state.documents);
   const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
@@ -76,14 +77,60 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   }, []);
 
   useEffect(() => {
+    lastSyncedTelegramContentRef.current.clear();
+    lastPushedLocalSignatureRef.current = "";
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!isDocumentsReady || !sessionId) {
       return;
     }
 
     let isCancelled = false;
 
+    const syncLocalSessionNotes = async () => {
+      const latestDocuments = useGuestDocuments.getState().documents;
+      const sessionNotes = latestDocuments
+        .map((document) => ({
+          id: document.id,
+          title: document.title,
+          content: document.content,
+          source: document.source === "telegram" ? ("telegram" as const) : ("local" as const),
+        }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+      const payloadSignature = JSON.stringify(
+        sessionNotes.map((note) => [
+          note.id,
+          note.title,
+          note.content ?? "",
+          note.source,
+        ]),
+      );
+
+      if (payloadSignature === lastPushedLocalSignatureRef.current) {
+        return;
+      }
+
+      const response = await fetch("/api/telegram/session-notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          sessionId,
+          notes: sessionNotes,
+        }),
+      });
+
+      if (response.ok) {
+        lastPushedLocalSignatureRef.current = payloadSignature;
+      }
+    };
+
     const syncTelegramSessionNotes = async () => {
       try {
+        await syncLocalSessionNotes();
+
         const response = await fetch(
           `/api/telegram/session-notes?sessionId=${encodeURIComponent(sessionId)}`,
           {

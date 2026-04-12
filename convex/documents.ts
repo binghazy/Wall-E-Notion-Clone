@@ -194,6 +194,118 @@ export const updateFromTelegram = mutation({
   },
 });
 
+export const upsertGuestSessionNotes = mutation({
+  args: {
+    sessionId: v.string(),
+    notes: v.array(
+      v.object({
+        id: v.string(),
+        title: v.string(),
+        content: v.optional(v.string()),
+        source: v.optional(v.union(v.literal("local"), v.literal("telegram"))),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = getTelegramSessionUserId(args.sessionId);
+    let syncedCount = 0;
+
+    for (const note of args.notes) {
+      const externalId = note.id.trim();
+
+      if (!externalId) {
+        continue;
+      }
+
+      const normalizedTitle = note.title.trim() || "Untitled";
+      const normalizedContent =
+        typeof note.content === "string" ? note.content : undefined;
+      const source = note.source === "telegram" ? "telegram" : "local";
+
+      if (source === "telegram") {
+        let existingTelegramDocument: Doc<"documents"> | null = null;
+
+        try {
+          existingTelegramDocument = await ctx.db.get(
+            externalId as Id<"documents">,
+          );
+        } catch {
+          continue;
+        }
+
+        if (
+          !existingTelegramDocument ||
+          existingTelegramDocument.userId !== userId ||
+          existingTelegramDocument.isArchived
+        ) {
+          continue;
+        }
+
+        const updates: Partial<Doc<"documents">> = {};
+
+        if (existingTelegramDocument.title !== normalizedTitle) {
+          updates.title = normalizedTitle;
+        }
+
+        if (existingTelegramDocument.content !== normalizedContent) {
+          updates.content = normalizedContent;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await ctx.db.patch(existingTelegramDocument._id, updates);
+        }
+
+        syncedCount += 1;
+        continue;
+      }
+
+      const existingDocument = await ctx.db
+        .query("documents")
+        .withIndex("by_user_external_id", (q) =>
+          q.eq("userId", userId).eq("externalId", externalId)
+        )
+        .first();
+
+      if (existingDocument) {
+        const updates: Partial<Doc<"documents">> = {};
+
+        if (existingDocument.title !== normalizedTitle) {
+          updates.title = normalizedTitle;
+        }
+
+        if (existingDocument.content !== normalizedContent) {
+          updates.content = normalizedContent;
+        }
+
+        if (existingDocument.isArchived) {
+          updates.isArchived = false;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await ctx.db.patch(existingDocument._id, updates);
+        }
+
+        syncedCount += 1;
+        continue;
+      }
+
+      await ctx.db.insert("documents", {
+        title: normalizedTitle,
+        userId,
+        externalId,
+        parentDocument: undefined,
+        content: normalizedContent,
+        isArchived: false,
+        isPublished: false,
+      });
+
+      syncedCount += 1;
+    }
+
+    return { syncedCount };
+  },
+});
+
 export const upsertTelegramSessionLink = mutation({
   args: {
     chatId: v.string(),

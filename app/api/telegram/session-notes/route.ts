@@ -9,6 +9,14 @@ type ConvexDocumentRecord = {
   _creationTime: number;
   title?: string;
   content?: string;
+  externalId?: string;
+};
+
+type TelegramSessionSyncNote = {
+  id: string;
+  title: string;
+  content?: string;
+  source?: "local" | "telegram";
 };
 
 const getConvexClient = () => {
@@ -42,12 +50,12 @@ export async function GET(request: Request) {
     return Response.json(
       {
         notes: documents.map((document) => ({
-          id: String(document._id),
+          id: document.externalId?.trim() || String(document._id),
           title: (document.title ?? "").trim(),
           content: document.content,
           createdAt: document._creationTime,
           updatedAt: document._creationTime,
-          source: "telegram" as const,
+          source: document.externalId ? ("local" as const) : ("telegram" as const),
         })),
       },
       {
@@ -61,6 +69,64 @@ export async function GET(request: Request) {
 
     return Response.json(
       { error: "Failed to fetch Telegram notes.", details: message },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  let payload: {
+    sessionId?: string;
+    notes?: TelegramSessionSyncNote[];
+  };
+
+  try {
+    payload = (await request.json()) as {
+      sessionId?: string;
+      notes?: TelegramSessionSyncNote[];
+    };
+  } catch {
+    return Response.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const sessionId = payload.sessionId?.trim();
+
+  if (!sessionId || !SESSION_ID_PATTERN.test(sessionId)) {
+    return Response.json({ error: "Invalid sessionId." }, { status: 400 });
+  }
+
+  const notes = Array.isArray(payload.notes) ? payload.notes : [];
+  const normalizedNotes = notes
+    .map((note) => ({
+      id: (note.id ?? "").trim(),
+      title: (note.title ?? "").trim(),
+      content: typeof note.content === "string" ? note.content : undefined,
+      source: note?.source === "telegram" ? "telegram" : "local",
+    }))
+    .filter((note) => note.id.length > 0)
+    .slice(0, 500);
+
+  try {
+    const convex = getConvexClient();
+    const result = (await convex.mutation(
+      "documents:upsertGuestSessionNotes" as any,
+      {
+        sessionId,
+        notes: normalizedNotes,
+      },
+    )) as {
+      syncedCount?: number;
+    };
+
+    return Response.json({
+      ok: true,
+      syncedCount: result?.syncedCount ?? 0,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+
+    return Response.json(
+      { error: "Failed to sync local notes.", details: message },
       { status: 500 },
     );
   }
