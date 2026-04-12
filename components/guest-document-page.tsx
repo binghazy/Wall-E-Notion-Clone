@@ -107,7 +107,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
   const applySerializedContentToEditor = useCallback(
     (nextSerializedContent?: string) => {
-      if (!editor || !document || document.source !== "telegram") {
+      if (!editor || !document) {
         return false;
       }
 
@@ -212,7 +212,14 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
         return;
       }
 
-      if (event.key === "Escape") {
+      const isDiscardShortcut =
+        event.key === "Backspace" &&
+        !event.shiftKey &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey;
+
+      if (isDiscardShortcut || event.key === "Escape") {
         event.preventDefault();
         event.stopPropagation();
         discardPendingTelegramSync();
@@ -227,7 +234,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   }, [confirmPendingTelegramSync, discardPendingTelegramSync, pendingTelegramSync]);
 
   useEffect(() => {
-    if (!document || document.source !== "telegram") {
+    if (!document) {
       return;
     }
 
@@ -395,8 +402,8 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
             <p className="font-semibold">AI update preview is ready</p>
             <p className="mt-1">
               Press <span className="font-semibold">Enter</span> to confirm, or{" "}
-              <span className="font-semibold">Esc</span> to discard this synced
-              draft.
+              <span className="font-semibold">Backspace</span> to discard this
+              synced draft.
             </p>
             <p className="mt-1 text-xs opacity-80">
               Received at{" "}
@@ -411,7 +418,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
                 size="sm"
                 onClick={discardPendingTelegramSync}
               >
-                Discard (Esc)
+                Discard (Backspace)
               </Button>
             </div>
           </div>

@@ -192,7 +192,8 @@ export const GuestShell = ({ children }: GuestShellProps) => {
             existingContent !== normalizedIncomingContent;
           const hasServerContentChanged =
             previousSyncedContent !== undefined &&
-            previousSyncedContent !== normalizedIncomingContent;
+            previousSyncedContent !== normalizedIncomingContent &&
+            existingContent !== normalizedIncomingContent;
 
           if (isInitialContentMismatch || hasServerContentChanged) {
             changedTelegramNotes.push(note);
@@ -231,11 +232,23 @@ export const GuestShell = ({ children }: GuestShellProps) => {
     };
 
     void syncTelegramSessionNotes();
-    const intervalId = window.setInterval(syncTelegramSessionNotes, 5_000);
+    const intervalId = window.setInterval(syncTelegramSessionNotes, 3_000);
+    const handleAppVisible = () => {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      void syncTelegramSessionNotes();
+    };
+
+    window.addEventListener("focus", handleAppVisible);
+    document.addEventListener("visibilitychange", handleAppVisible);
 
     return () => {
       isCancelled = true;
       window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleAppVisible);
+      document.removeEventListener("visibilitychange", handleAppVisible);
     };
   }, [
     clearPendingDeletions,
