@@ -400,11 +400,12 @@ const listTelegramSessionDocuments = async (
   convex: ConvexHttpClient,
   sessionId: string,
 ) => {
-  const documents = (await convex.query(
-    "documents:listForTelegramSession" as any,
-    {
-      sessionId,
-    },
+  const documents = (await withTransientRetry(
+    "documents:listForTelegramSession",
+    async () =>
+      (await convex.query("documents:listForTelegramSession" as any, {
+        sessionId,
+      })) as TelegramSessionDocument[],
   )) as TelegramSessionDocument[];
 
   return documents.filter((document) => !document.isArchived);
@@ -570,6 +571,50 @@ const isCapabilitiesQuestion = (text: string) => {
   return LIMITATION_QUERY_KEYWORDS.some((keyword) =>
     normalized.includes(keyword),
   );
+};
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const isTransientBackendError = (error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  return /(5\d{2}|internal server error|service unavailable|gateway timeout|timed out|fetch failed|econnreset|etimedout)/i.test(
+    message,
+  );
+};
+
+const withTransientRetry = async <T>(
+  label: string,
+  fn: () => Promise<T>,
+  retries = 2,
+) => {
+  let attempt = 0;
+  let lastError: unknown;
+
+  while (attempt <= retries) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      if (!isTransientBackendError(error) || attempt >= retries) {
+        break;
+      }
+
+      const backoffMs = 350 * 2 ** attempt;
+      console.warn(
+        `[TELEGRAM_RETRY] ${label} attempt ${attempt + 1} failed, retrying in ${backoffMs}ms`,
+        error,
+      );
+      await wait(backoffMs);
+      attempt += 1;
+    }
+  }
+
+  throw lastError;
 };
 
 const splitTelegramText = (text: string) => {
@@ -899,13 +944,14 @@ const runAssistantTurn = async ({
           const serializedContent = incomingBlocks
             ? JSON.stringify(incomingBlocks)
             : undefined;
-          const documentId = (await convex.mutation(
-            "documents:createFromTelegram" as any,
-            {
-              sessionId,
-              title: cleanedTitle,
-              content: serializedContent,
-            },
+          const documentId = (await withTransientRetry(
+            "documents:createFromTelegram",
+            async () =>
+              (await convex.mutation("documents:createFromTelegram" as any, {
+                sessionId,
+                title: cleanedTitle,
+                content: serializedContent,
+              })) as string,
           )) as string;
 
           const refreshedDocuments = await loadSessionDocuments(true);
@@ -1023,11 +1069,13 @@ const runAssistantTurn = async ({
             : undefined;
 
           try {
-            await convex.mutation("documents:updateFromTelegram" as any, {
-              sessionId,
-              id: normalizedNoteId,
-              title: shouldUpdateTitle ? cleanedTitle : undefined,
-              content: nextSerializedContent,
+            await withTransientRetry("documents:updateFromTelegram", async () => {
+              await convex.mutation("documents:updateFromTelegram" as any, {
+                sessionId,
+                id: normalizedNoteId,
+                title: shouldUpdateTitle ? cleanedTitle : undefined,
+                content: nextSerializedContent,
+              });
             });
           } catch (error) {
             return {
@@ -1148,9 +1196,11 @@ const handleCommand = async ({
       return true;
     }
 
-    await convex.mutation("documents:upsertTelegramSessionLink" as any, {
-      chatId: chatKey,
-      sessionId,
+    await withTransientRetry("documents:upsertTelegramSessionLink", async () => {
+      await convex.mutation("documents:upsertTelegramSessionLink" as any, {
+        chatId: chatKey,
+        sessionId,
+      });
     });
     getMemoryStore().delete(chatKey);
 
@@ -1163,8 +1213,10 @@ const handleCommand = async ({
   }
 
   if (normalized === "/unlink") {
-    await convex.mutation("documents:removeTelegramSessionLink" as any, {
-      chatId: chatKey,
+    await withTransientRetry("documents:removeTelegramSessionLink", async () => {
+      await convex.mutation("documents:removeTelegramSessionLink" as any, {
+        chatId: chatKey,
+      });
     });
     getMemoryStore().delete(chatKey);
     await sendTelegramMessage(
@@ -1193,9 +1245,12 @@ const getLinkedSessionId = async (
   convex: ConvexHttpClient,
 ) => {
   const chatKey = String(chatId);
-  const sessionId = (await convex.query(
-    "documents:getTelegramSessionLink" as any,
-    { chatId: chatKey },
+  const sessionId = (await withTransientRetry(
+    "documents:getTelegramSessionLink",
+    async () =>
+      (await convex.query("documents:getTelegramSessionLink" as any, {
+        chatId: chatKey,
+      })) as string | null,
   )) as string | null;
 
   return sessionId;
