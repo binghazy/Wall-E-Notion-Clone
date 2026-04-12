@@ -1,5 +1,7 @@
 import { ConvexHttpClient } from "convex/browser";
 
+export const dynamic = "force-dynamic";
+
 const SESSION_ID_PATTERN = /^[a-zA-Z0-9_-]{16,80}$/;
 
 type ConvexDocumentRecord = {
@@ -37,16 +39,23 @@ export async function GET(request: Request) {
       { sessionId },
     )) as ConvexDocumentRecord[];
 
-    return Response.json({
-      notes: documents.map((document) => ({
-        id: String(document._id),
-        title: (document.title ?? "").trim(),
-        content: document.content,
-        createdAt: document._creationTime,
-        updatedAt: document._creationTime,
-        source: "telegram" as const,
-      })),
-    });
+    return Response.json(
+      {
+        notes: documents.map((document) => ({
+          id: String(document._id),
+          title: (document.title ?? "").trim(),
+          content: document.content,
+          createdAt: document._creationTime,
+          updatedAt: document._creationTime,
+          source: "telegram" as const,
+        })),
+      },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        },
+      },
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
 

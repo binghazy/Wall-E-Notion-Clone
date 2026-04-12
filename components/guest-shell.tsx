@@ -17,7 +17,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useMediaQuery } from "usehooks-ts";
 
@@ -34,6 +34,11 @@ import {
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
 import { useAiSettings } from "@/hooks/use-ai-settings";
 import { useTelegramSession } from "@/hooks/use-telegram-session";
+import {
+  TELEGRAM_NOTES_SYNC_EVENT,
+  type TelegramNotesSyncEventDetail,
+  type TelegramSyncedNote,
+} from "@/lib/telegram-sync-events";
 import { cn } from "@/lib/utils";
 import { getDocumentDisplayTitle } from "@/lib/document-title";
 
@@ -51,6 +56,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const [isAgentsOpen, setIsAgentsOpen] = useState(true);
   const [isPagesOpen, setIsPagesOpen] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
+  const lastSyncedTelegramContentRef = useRef<Map<string, string>>(new Map());
 
   const documents = useGuestDocuments((state) => state.documents);
   const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
@@ -80,6 +86,9 @@ export const GuestShell = ({ children }: GuestShellProps) => {
       try {
         const response = await fetch(
           `/api/telegram/session-notes?sessionId=${encodeURIComponent(sessionId)}`,
+          {
+            cache: "no-store",
+          },
         );
 
         if (!response.ok) {
@@ -87,28 +96,75 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         }
 
         const payload = (await response.json()) as {
-          notes?: Array<{
-            id: string;
-            title: string;
-            content?: string;
-            createdAt: number;
-            updatedAt: number;
-            source?: "local" | "telegram";
-          }>;
+          notes?: TelegramSyncedNote[];
         };
 
         if (isCancelled || !Array.isArray(payload.notes)) {
           return;
         }
 
+        const existingDocuments = useGuestDocuments.getState().documents;
+        const existingById = new Map(
+          existingDocuments.map((document) => [document.id, document]),
+        );
+        const changedTelegramNotes: TelegramSyncedNote[] = [];
+        const incomingIds = new Set<string>();
+
+        for (const note of payload.notes) {
+          incomingIds.add(note.id);
+
+          const normalizedIncomingContent = note.content ?? "";
+          const previousSyncedContent =
+            lastSyncedTelegramContentRef.current.get(note.id);
+          const existingDocument = existingById.get(note.id);
+          const existingContent = existingDocument?.content ?? "";
+
+          const isInitialContentMismatch =
+            previousSyncedContent === undefined &&
+            Boolean(existingDocument) &&
+            existingContent !== normalizedIncomingContent;
+          const hasServerContentChanged =
+            previousSyncedContent !== undefined &&
+            previousSyncedContent !== normalizedIncomingContent;
+
+          if (isInitialContentMismatch || hasServerContentChanged) {
+            changedTelegramNotes.push(note);
+          }
+
+          lastSyncedTelegramContentRef.current.set(
+            note.id,
+            normalizedIncomingContent,
+          );
+        }
+
+        for (const cachedId of Array.from(
+          lastSyncedTelegramContentRef.current.keys(),
+        )) {
+          if (!incomingIds.has(cachedId)) {
+            lastSyncedTelegramContentRef.current.delete(cachedId);
+          }
+        }
+
         upsertDocuments(payload.notes);
+
+        if (changedTelegramNotes.length > 0 && typeof window !== "undefined") {
+          const eventDetail: TelegramNotesSyncEventDetail = {
+            notes: changedTelegramNotes,
+          };
+          window.dispatchEvent(
+            new CustomEvent<TelegramNotesSyncEventDetail>(
+              TELEGRAM_NOTES_SYNC_EVENT,
+              { detail: eventDetail },
+            ),
+          );
+        }
       } catch {
         // Ignore sync errors; local guest notes remain available.
       }
     };
 
     void syncTelegramSessionNotes();
-    const intervalId = window.setInterval(syncTelegramSessionNotes, 15_000);
+    const intervalId = window.setInterval(syncTelegramSessionNotes, 5_000);
 
     return () => {
       isCancelled = true;
