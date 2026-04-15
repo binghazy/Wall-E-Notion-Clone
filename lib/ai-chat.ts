@@ -201,8 +201,7 @@ type WallEPuterModel = (typeof WALLE_PUTER_MODELS)[number];
 const DEFAULT_WALLE_AI_PROVIDER: WallEAiProvider = "puter";
 const envPuterModel = process.env.PUTER_MODEL?.trim();
 const DEFAULT_PUTER_MODEL: WallEPuterModel =
-  envPuterModel &&
-  WALLE_PUTER_MODELS.includes(envPuterModel as WallEPuterModel)
+  envPuterModel && WALLE_PUTER_MODELS.includes(envPuterModel as WallEPuterModel)
     ? (envPuterModel as WallEPuterModel)
     : "gpt-5-nano";
 const DEFAULT_GEMINI_MODEL =
@@ -460,6 +459,10 @@ Formatting requirements for document content:
 - Use Markdown checklists (\`- [ ] item\`) when tasks or action items are present.
 - For actionable items in BlockNote, use checklist-style content so users can track completion.
 - Use Markdown tables when showing schedules, comparisons, plans, or structured data.
+- For plans, schedules, or lists: Always generate comprehensive, detailed content with multiple specific items, times, and descriptions. Avoid single-word or minimal responses.
+- When creating plans: Include specific activities, times, locations, and detailed descriptions for each item.
+- Structure plans with clear headings, subheadings, and organized sections.
+- Example for a weekend plan: Include Friday evening, Saturday morning/afternoon/evening, Sunday activities, with specific times and descriptions.
 `;
 
   const blockNoteToolInstructions = `
@@ -468,6 +471,7 @@ Tool-calling requirements:
 - Return valid JSON tool input only; no markdown code fences and no trailing text.
 - Issue exactly one final, complete tool call for the request, then stop generating.
 - Do not return plain assistant prose outside the tool call.
+- If you cannot generate content, provide a minimal valid tool call with a helpful message.
 `;
 
   const ollamaStabilityInstructions =

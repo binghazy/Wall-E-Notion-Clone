@@ -3,18 +3,20 @@
 import { type PartialBlock } from "@blocknote/core";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft, FileText, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, HelpCircle, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { useGuestDocuments } from "@/hooks/use-guest-documents";
 import { useEditorStore } from "@/hooks/use-editor-store";
+import { useSiteTour } from "@/hooks/use-site-tour";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  getAutoDocumentTitleFromContent,
-  isUntitledDocumentTitle,
+  getDocumentDisplayTitle,
+  getEditableDocumentTitleValue,
 } from "@/lib/document-title";
 import {
   TELEGRAM_NOTES_SYNC_EVENT,
@@ -26,10 +28,41 @@ type GuestDocumentPageProps = {
   documentId: string;
 };
 
-type PendingTelegramSync = {
-  incomingContent: string;
-  previousContent: string;
-  receivedAt: number;
+const normalizeContentForComparison = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeContentForComparison(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const normalizedEntries = Object.entries(record)
+    .filter(([key]) => key !== "id")
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([key, entryValue]) => [
+      key,
+      normalizeContentForComparison(entryValue),
+    ]);
+
+  return Object.fromEntries(normalizedEntries);
+};
+
+const getContentComparisonSignature = (serializedContent?: string) => {
+  const normalizedContent = serializedContent?.trim();
+
+  if (!normalizedContent) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(
+      normalizeContentForComparison(JSON.parse(normalizedContent)),
+    );
+  } catch {
+    return normalizedContent;
+  }
 };
 
 const parseSerializedBlocks = (serializedContent?: string): PartialBlock[] => {
@@ -67,6 +100,7 @@ const parseSerializedBlocks = (serializedContent?: string): PartialBlock[] => {
 
 export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   const router = useRouter();
+  const [hasMounted, setHasMounted] = useState(false);
   const hasHydrated = useGuestDocuments((state) => state.hasHydrated);
   const document = useGuestDocuments((state) =>
     state.documents.find((entry) => entry.id === documentId)
@@ -75,8 +109,9 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
   const removeDocument = useGuestDocuments((state) => state.removeDocument);
   const editor = useEditorStore((state) => state.editor);
   const highlightedSnapshotKeyRef = useRef<string | null>(null);
-  const lastHandledTelegramContentRef = useRef<string | null>(null);
+  const lastHandledTelegramContentSignatureRef = useRef<string | null>(null);
   const previousDocumentIdRef = useRef<string | null>(null);
+  const { startTour: startDocumentTour } = useSiteTour("document");
 
   const Editor = useMemo(
     () => dynamic(() => import("@/components/editor"), { ssr: false }),
@@ -85,11 +120,13 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
   const [title, setTitle] = useState("");
   const [lastAiSyncAt, setLastAiSyncAt] = useState<number | null>(null);
-  const [pendingTelegramSync, setPendingTelegramSync] =
-    useState<PendingTelegramSync | null>(null);
 
   useEffect(() => {
-    setTitle(document?.title ?? "");
+    setHasMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setTitle(getEditableDocumentTitleValue(document?.title));
   }, [document?.title]);
 
   useEffect(() => {
@@ -100,10 +137,24 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
     }
 
     previousDocumentIdRef.current = currentDocumentId;
-    lastHandledTelegramContentRef.current =
-      typeof document?.content === "string" ? document.content : "";
-    setPendingTelegramSync(null);
+    lastHandledTelegramContentSignatureRef.current = getContentComparisonSignature(
+      typeof document?.content === "string" ? document.content : "",
+    );
   }, [document]);
+
+  useEffect(() => {
+    if (!document?.id) {
+      return;
+    }
+
+    const tourTimeout = window.setTimeout(() => {
+      void startDocumentTour();
+    }, 460);
+
+    return () => {
+      window.clearTimeout(tourTimeout);
+    };
+  }, [document?.id, startDocumentTour]);
 
   const applySerializedContentToEditor = useCallback(
     (nextSerializedContent?: string) => {
@@ -159,80 +210,6 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
     [document, editor],
   );
 
-  const confirmPendingTelegramSync = useCallback(() => {
-    if (!pendingTelegramSync) {
-      return;
-    }
-
-    lastHandledTelegramContentRef.current = pendingTelegramSync.incomingContent;
-    setLastAiSyncAt(Date.now());
-    setPendingTelegramSync(null);
-  }, [pendingTelegramSync]);
-
-  const discardPendingTelegramSync = useCallback(() => {
-    if (!pendingTelegramSync || !document) {
-      return;
-    }
-
-    const didRevert = applySerializedContentToEditor(
-      pendingTelegramSync.previousContent,
-    );
-
-    if (didRevert) {
-      updateDocument(document.id, {
-        content: pendingTelegramSync.previousContent,
-      });
-      lastHandledTelegramContentRef.current = pendingTelegramSync.previousContent;
-    }
-
-    setPendingTelegramSync(null);
-  }, [applySerializedContentToEditor, document, pendingTelegramSync, updateDocument]);
-
-  useEffect(() => {
-    if (!pendingTelegramSync) {
-      return;
-    }
-
-    const handleReviewShortcut = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-
-      const isConfirmShortcut =
-        event.key === "Enter" &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey;
-
-      if (isConfirmShortcut) {
-        event.preventDefault();
-        event.stopPropagation();
-        confirmPendingTelegramSync();
-        return;
-      }
-
-      const isDiscardShortcut =
-        event.key === "Backspace" &&
-        !event.shiftKey &&
-        !event.altKey &&
-        !event.ctrlKey &&
-        !event.metaKey;
-
-      if (isDiscardShortcut || event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        discardPendingTelegramSync();
-      }
-    };
-
-    window.addEventListener("keydown", handleReviewShortcut, true);
-
-    return () => {
-      window.removeEventListener("keydown", handleReviewShortcut, true);
-    };
-  }, [confirmPendingTelegramSync, discardPendingTelegramSync, pendingTelegramSync]);
-
   useEffect(() => {
     if (!document) {
       return;
@@ -253,11 +230,15 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
       }
 
       const incomingContent = matchingNote.content ?? "";
+      const incomingContentSignature =
+        getContentComparisonSignature(incomingContent);
       const currentSerializedContent = JSON.stringify(editor.document);
+      const currentContentSignature =
+        getContentComparisonSignature(currentSerializedContent);
 
       if (
-        incomingContent === currentSerializedContent ||
-        incomingContent === lastHandledTelegramContentRef.current
+        incomingContentSignature === currentContentSignature ||
+        incomingContentSignature === lastHandledTelegramContentSignatureRef.current
       ) {
         return;
       }
@@ -268,10 +249,18 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
         return;
       }
 
-      setPendingTelegramSync({
-        incomingContent,
-        previousContent: currentSerializedContent,
-        receivedAt: Date.now(),
+      updateDocument(document.id, {
+        content: incomingContent,
+      });
+      lastHandledTelegramContentSignatureRef.current = incomingContentSignature;
+      setLastAiSyncAt(Date.now());
+      toast.info("Content Updated Using AI", {
+        description: `Wall-E Bot Updated "${getDocumentDisplayTitle(document.title)}".`,
+        style: {
+          background: "rgb(239 246 255)",
+          color: "rgb(30 64 175)",
+          border: "1px solid rgb(191 219 254)",
+        },
       });
     };
 
@@ -280,7 +269,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
     return () => {
       window.removeEventListener(TELEGRAM_NOTES_SYNC_EVENT, handleTelegramSync);
     };
-  }, [applySerializedContentToEditor, document, editor]);
+  }, [applySerializedContentToEditor, document, editor, updateDocument]);
 
   useEffect(() => {
     if (!editor || !document || document.source !== "telegram") {
@@ -316,12 +305,12 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
     router.push("/documents");
   };
 
-  if (!hasHydrated) {
+  if (!hasMounted || !hasHydrated) {
     return (
-      <div className="px-6 py-8">
+      <div className="px-4 py-8 sm:px-6">
         <div className="mx-auto max-w-4xl space-y-4">
           <Skeleton className="h-10 w-32" />
-          <Skeleton className="h-12 w-80" />
+          <Skeleton className="h-12 w-full max-w-[20rem]" />
           <Skeleton className="h-[420px] w-full" />
         </div>
       </div>
@@ -330,8 +319,8 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
   if (!document) {
     return (
-      <div className="flex min-h-full items-center justify-center px-6 py-12">
-        <div className="w-full max-w-xl rounded-3xl border bg-card p-8 text-center shadow-sm">
+      <div className="flex min-h-full items-center justify-center px-4 py-12 sm:px-6">
+        <div className="w-full max-w-xl rounded-3xl border bg-card p-6 text-center shadow-sm sm:p-8">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
             <FileText className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -349,9 +338,9 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
 
   return (
     <div className="min-h-full bg-background">
-      <div className="border-b bg-background/95 px-6 py-5 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="border-b bg-background/95 px-4 py-5 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
         <div className="mx-auto max-w-4xl">
-          <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/documents">
@@ -370,6 +359,7 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </Button>
+      
           </div>
 
           <Input
@@ -381,13 +371,14 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
                 title: nextTitle,
               });
             }}
-            placeholder="Untitled"
-            className="h-auto border-none px-0 text-3xl font-semibold shadow-none focus-visible:ring-0 md:text-4xl"
+            placeholder="New Note"
+            data-tour="document-title-input"
+            className="h-auto border-none px-0 text-2xl font-semibold shadow-none focus-visible:ring-0 sm:text-3xl md:text-4xl"
           />
 
           <p className="mt-2 text-sm text-muted-foreground">
             {document.source === "telegram"
-              ? "Synced from Telegram Wall-E bot. New AI edits are previewed first, then you confirm with Enter."
+              ? "Synced from Telegram Wall-E bot. Incoming AI edits are applied automatically."
               : "This note is saved locally in your browser. Use the AI bubble or type /ai in the note to insert a reply directly."}
             {document.source === "telegram" && lastAiSyncAt
               ? ` Last AI sync at ${new Date(lastAiSyncAt).toLocaleTimeString()}.`
@@ -396,53 +387,16 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl px-6 py-8">
-        {pendingTelegramSync && (
-          <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-200">
-            <p className="font-semibold">AI update preview is ready</p>
-            <p className="mt-1">
-              Press <span className="font-semibold">Enter</span> to confirm, or{" "}
-              <span className="font-semibold">Backspace</span> to discard this
-              synced draft.
-            </p>
-            <p className="mt-1 text-xs opacity-80">
-              Received at{" "}
-              {new Date(pendingTelegramSync.receivedAt).toLocaleTimeString()}.
-            </p>
-            <div className="mt-3 flex items-center gap-2">
-              <Button size="sm" onClick={confirmPendingTelegramSync}>
-                Confirm (Enter)
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={discardPendingTelegramSync}
-              >
-                Discard (Backspace)
-              </Button>
-            </div>
-          </div>
-        )}
-
-        <Editor
-          key={document.id}
-          onChange={(content) => {
-            const nextDocumentUpdates: { content: string; title?: string } = {
-              content,
-            };
-
-            if (isUntitledDocumentTitle(document.title)) {
-              const autoTitle = getAutoDocumentTitleFromContent(content);
-
-              if (autoTitle) {
-                nextDocumentUpdates.title = autoTitle;
-              }
-            }
-
-            updateDocument(document.id, nextDocumentUpdates);
-          }}
-          initialContent={document.content}
-        />
+      <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+        <div data-tour="document-editor">
+          <Editor
+            key={document.id}
+            onChange={(content) => {
+              updateDocument(document.id, { content });
+            }}
+            initialContent={document.content}
+          />
+        </div>
       </div>
     </div>
   );

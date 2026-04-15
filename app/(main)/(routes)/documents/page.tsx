@@ -8,10 +8,11 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AiSettingsDialog } from "@/components/ai-settings-dialog";
-import { useGuestDocuments } from "@/hooks/use-guest-documents";
-import { useAiSettings } from "@/hooks/use-ai-settings";
-import { useTelegramSession } from "@/hooks/use-telegram-session";
 import { Button } from "@/components/ui/button";
+import { useAiSettings } from "@/hooks/use-ai-settings";
+import { useGuestDocuments } from "@/hooks/use-guest-documents";
+import { useSiteTour } from "@/hooks/use-site-tour";
+import { useTelegramSession } from "@/hooks/use-telegram-session";
 
 const AI_SETTINGS_ONBOARDING_STORAGE_PREFIX =
   "walle-ai-settings-onboarding-complete";
@@ -25,6 +26,7 @@ const DocumentsPage = () => {
   const [isAiSettingsDialogOpen, setIsAiSettingsDialogOpen] = useState(false);
   const [isAiSettingsOnboardingFlow, setIsAiSettingsOnboardingFlow] =
     useState(false);
+  const { startTour: startHomeTour } = useSiteTour("home");
 
   const onboardingIdentity = "guest";
 
@@ -49,6 +51,20 @@ const DocumentsPage = () => {
     setIsAiSettingsOnboardingFlow(true);
     setIsAiSettingsDialogOpen(true);
   }, [hasMounted, onboardingIdentity, userName]);
+
+  useEffect(() => {
+    if (!hasMounted || isAiSettingsDialogOpen) {
+      return;
+    }
+
+    const tourTimeout = window.setTimeout(() => {
+      void startHomeTour();
+    }, 420);
+
+    return () => {
+      window.clearTimeout(tourTimeout);
+    };
+  }, [hasMounted, isAiSettingsDialogOpen, startHomeTour]);
 
   const resolvedUserName = hasMounted ? userName.trim() || "Guest" : "Guest";
   const firstName = resolvedUserName;
@@ -94,6 +110,7 @@ const DocumentsPage = () => {
         telegramCommand={telegramCommand}
         onCopyTelegramCommand={handleCopyTelegramCommand}
         onCreate={useGuestCreateDocument()}
+        onStartTutorial={() => void startHomeTour({ force: true })}
       />
     </>
   );
@@ -117,6 +134,7 @@ const DocumentsHomeContent = ({
   telegramCommand,
   onCopyTelegramCommand,
   onCreate,
+  onStartTutorial,
 }: {
   firstName: string;
   workspaceName: string;
@@ -125,37 +143,43 @@ const DocumentsHomeContent = ({
   telegramCommand: string;
   onCopyTelegramCommand: () => void;
   onCreate: () => void;
+  onStartTutorial: () => void;
 }) => {
   const isGuest = mode === "guest";
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-background via-background to-muted/30 px-6 py-12 md:px-10 md:py-16">
-      <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.25fr_0.85fr]">
+    <div className="min-h-full bg-gradient-to-b from-background via-background to-muted/30 px-4 py-6 sm:px-6 md:px-10 md:py-8">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.25fr_0.85fr]">
         <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
-          <div className="grid gap-4 p-4  md:grid-cols-[1.1fr_0.9fr] md:p-12">
+          <div className="grid gap-4 p-4 md:grid-cols-[1.1fr_0.9fr] md:p-12">
             <div className="flex h-full flex-col justify-center">
-              <div className="mb-10 inline-flex w-fit items-center gap-2 rounded-full border bg-muted/70 px-3 py-1 text-xs font-medium text-muted-foreground">
+              <div className="mb-6 inline-flex w-fit items-center gap-2 rounded-full border bg-muted/70 px-3 py-1 text-xs font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5" />
                 {isGuest ? "Guest mode is active" : "Signed-in workspace"}
               </div>
-              <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-                Welcome to {firstName}&apos;s Wall-E AI
+              <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl md:text-4xl">
+                Welcome {firstName}
               </h1>
+              <p className="mt-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+                {workspaceName}
+              </p>
               <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
                 {isGuest
                   ? "You are inside a temporary guest workspace stored locally in this browser. Create a page, try the editor, and use the AI sidebar once you open a document."
                   : "Create a page, organize your notes, and use the AI sidebar to turn rough ideas into clean blocks inside your workspace."}
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-                <Button onClick={onCreate} size="lg">
-                  <PlusCircle className="mr-2 h-4 w-4" />
+                <Button
+                  onClick={onCreate}
+                  size="lg"
+                  data-tour="home-create-note"
+                  className="w-full justify-center sm:min-w-[300px] sm:w-auto"
+                >
+                  <PlusCircle className="mr-3 h-5  w-4" />
                   {isGuest ? "Create a note" : "Create your first note"}
                 </Button>
-                <Button variant="outline" size="lg" asChild>
-                  <Link href="/">Back to home</Link>
-                </Button>
               </div>
-              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <div className="rounded-2xl border bg-muted/40 p-4">
                   <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                     <FileText className="h-4 w-4 text-primary" />
@@ -174,7 +198,7 @@ const DocumentsHomeContent = ({
                   </div>
                   <p className="text-sm text-muted-foreground">
                     Open any document and the right-side assistant can insert
-                    lists, tables, and paragraphs.
+                    lists, tables.
                   </p>
                 </div>
               </div>
@@ -202,10 +226,13 @@ const DocumentsHomeContent = ({
           </div>
         </section>
 
-        <aside className="flex h-full flex-col gap-4">
+        <aside className="flex h-full flex-col gap-3">
           {isGuest && (
-            <div className="rounded-3xl border border-sky-200/80 bg-sky-100 p-6 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/30">
-              <div className="flex items-center justify-between gap-2">
+            <div
+              className="rounded-3xl border border-sky-200/80 bg-sky-100 p-6 shadow-sm dark:border-sky-900/40 dark:bg-sky-950/30"
+              data-tour="home-telegram-link"
+            >
+              <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:items-center">
                 <h2 className="flex items-center gap-2 text-sm font-semibold text-sky-900 dark:text-sky-100">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -221,7 +248,7 @@ const DocumentsHomeContent = ({
                   size="sm"
                   onClick={onCopyTelegramCommand}
                   disabled={!telegramCommand}
-                  className="border-sky-300/80 bg-white/70 hover:bg-white dark:border-sky-800/60 dark:bg-sky-900/30 dark:hover:bg-sky-900/50"
+                  className="w-full border-sky-300/80 bg-white/70 hover:bg-white sm:w-auto dark:border-sky-800/60 dark:bg-sky-900/30 dark:hover:bg-sky-900/50"
                 >
                   <Copy className="mr-2 h-4 w-4" />
                   Copy command
@@ -240,9 +267,12 @@ const DocumentsHomeContent = ({
             </div>
           )}
 
-          <div className="rounded-3xl border bg-card p-5 shadow-sm">
+          <div
+            className="rounded-3xl border bg-card p-5 shadow-sm"
+            data-tour="home-quick-start"
+          >
             <h2 className="text-sm font-semibold">Quick start</h2>
-            <div className="mt-4 space-y-11">
+            <div className="mt-4 space-y-5">
               <div className="rounded-2xl bg-muted/20 p-4">
                 <p className="text-sm font-medium">1. Create a page</p>
                 <p className="mt-1 text-sm text-muted-foreground">

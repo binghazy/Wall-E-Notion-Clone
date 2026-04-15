@@ -199,13 +199,7 @@ export const AiSidebar = () => {
   } = useChat<WallEChatMessage>();
 
   const processInsertNotionBlocksToolCall = useCallback(
-    async ({
-      toolCallId,
-      input,
-    }: {
-      toolCallId: string;
-      input: unknown;
-    }) => {
+    async ({ toolCallId, input }: { toolCallId: string; input: unknown }) => {
       if (handledToolCallIdsRef.current.has(toolCallId)) {
         return;
       }
@@ -324,7 +318,6 @@ export const AiSidebar = () => {
     setIsOpen(true);
     setIsAiSettingsOnboardingFlow(true);
     setIsAiSettingsDialogOpen(true);
-    toast.info("Set your name, AI provider, and model to get started.");
   }, [aiUserName, isDocumentPage, onboardingIdentity]);
 
   useEffect(() => {
@@ -503,7 +496,7 @@ export const AiSidebar = () => {
   return (
     <>
       {isOpen && (
-        <div className="fixed bottom-24 right-4 z-[99998] flex h-[77vh] w-[min(22rem,calc(100vw-1rem))] flex-col overflow-hidden rounded-[2rem] border bg-background/96 shadow-[0_28px_90px_rgba(15,23,42,0.22)] backdrop-blur dark:border-white/10 dark:bg-[#161616]/95 sm:bottom-28 sm:right-6">
+        <div className="fixed inset-x-2 bottom-20 top-[4.5rem] z-[99998] flex h-auto w-auto flex-col overflow-hidden rounded-2xl border bg-background/96 shadow-[0_28px_90px_rgba(15,23,42,0.22)] backdrop-blur dark:border-white/10 dark:bg-[#161616]/95 sm:inset-x-auto sm:bottom-28 sm:right-6 sm:top-auto sm:h-[77vh] sm:w-[min(22rem,calc(100vw-1rem))] sm:rounded-[2rem]">
           <div className="border-b border-border/70 px-4 py-4 dark:border-white/10">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -624,9 +617,8 @@ export const AiSidebar = () => {
                     isBusy &&
                     message.id === latestAssistantMessageId;
 
-                  const toolStatusParts = (Array.isArray(message.parts)
-                    ? message.parts
-                    : []
+                  const toolStatusParts = (
+                    Array.isArray(message.parts) ? message.parts : []
                   )
                     .map((part, index) => {
                       if (part?.type !== "tool-insertNotionBlocks") {
@@ -653,10 +645,7 @@ export const AiSidebar = () => {
                     })
                     .filter(Boolean);
 
-                  if (
-                    !messageTextContent &&
-                    toolStatusParts.length === 0
-                  ) {
+                  if (!messageTextContent && toolStatusParts.length === 0) {
                     return null;
                   }
 
@@ -745,9 +734,10 @@ export const AiSidebar = () => {
 
       <Button
         size="icon"
-        className="fixed bottom-4 right-4 z-[99999] h-16 w-16 rounded-[1.6rem] shadow-2xl sm:bottom-6 sm:right-6"
+        className="fixed bottom-4 right-4 z-[99999] h-14 w-14 rounded-2xl shadow-2xl sm:bottom-6 sm:right-6 sm:h-16 sm:w-16 sm:rounded-[1.6rem]"
         onClick={() => setIsOpen((current) => !current)}
         aria-label={isOpen ? "Close AI assistant" : "Open AI assistant"}
+        data-tour="document-ai-toggle"
       >
         {isBusy ? (
           <Loader2 className="h-6 w-6 animate-spin" />

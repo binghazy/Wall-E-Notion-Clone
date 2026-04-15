@@ -8,7 +8,10 @@ import { api } from "@/convex/_generated/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getDocumentDisplayTitle } from "@/lib/document-title";
+import {
+  getDocumentDisplayTitle,
+  getEditableDocumentTitleValue,
+} from "@/lib/document-title";
 
 interface TitleProps {
   initialData: Doc<"documents">;
@@ -18,11 +21,13 @@ export const Title = ({ initialData }: TitleProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const update = useMutation(api.documents.update);
 
-  const [title, setTitle] = useState(initialData.title ?? "");
+  const [title, setTitle] = useState(
+    getEditableDocumentTitleValue(initialData.title),
+  );
   const [isEditing, setIsEditing] = useState(false);
 
   const enableInput = () => {
-    setTitle(initialData.title ?? "");
+    setTitle(getEditableDocumentTitleValue(initialData.title));
     setIsEditing(true);
     setTimeout(() => {
       inputRef.current?.focus();
@@ -58,7 +63,7 @@ export const Title = ({ initialData }: TitleProps) => {
           onChange={onChange}
           onKeyDown={onKeyDown}
           value={title}
-          placeholder="Untitled"
+          placeholder="New Note"
           className="h-7 px-2 focus-visible:ring-transparent"
         />
       ) : (

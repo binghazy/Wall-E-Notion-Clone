@@ -101,7 +101,7 @@ export const AiSettingsDialog = ({
           )}
         </DialogTrigger>
       ) : null}
-      <DialogContent className="max-w-xl rounded-3xl border px-0 py-0">
+      <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] max-w-xl overflow-y-auto rounded-3xl border px-0 py-0 sm:w-full">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-5 w-5" />
@@ -129,7 +129,7 @@ export const AiSettingsDialog = ({
 
           <div className="space-y-2">
             <Label>Provider</Label>
-            <div className="grid grid-cols-3 gap-2 rounded-2xl border p-2">
+            <div className="grid grid-cols-1 gap-2 rounded-2xl border p-2 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => {
@@ -257,6 +257,7 @@ export const AiSettingsDialog = ({
           <Button
             type="button"
             variant="ghost"
+            className="w-full sm:w-auto"
             onClick={() => {
               resetSettings();
               setDraftProvider(DEFAULT_WALLE_PROVIDER);
@@ -271,6 +272,7 @@ export const AiSettingsDialog = ({
           </Button>
           <Button
             type="button"
+            className="w-full sm:w-auto"
             disabled={requireName && normalizedDraftUserName.length === 0}
             onClick={() => {
               updateSettings({

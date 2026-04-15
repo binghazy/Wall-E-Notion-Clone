@@ -75,9 +75,12 @@ export async function POST(request: Request) {
     const provider = getWallEAiProvider(aiSettings);
     const isLocalProvider = provider === "ollama";
     // Keep local responses bounded to avoid long-running "thinking" loops.
-    const abortSignal = AbortSignal.timeout(isLocalProvider ? 180_000 : 90_000);
+    const abortSignal = AbortSignal.timeout(
+      isLocalProvider ? 300_000 : 240_000,
+    );
     const maxOutputTokens = isLocalProvider ? 12_000 : 8_000;
-    const blockNoteMaxOutputTokens = isLocalProvider ? 8_000 : 6_000;
+    // Give Composer more room for full document operations instead of terse plans.
+    const blockNoteMaxOutputTokens = isLocalProvider ? 16_000 : 20_000;
 
     const model = getWallEChatModel(aiSettings);
     const providerOptions = getWallEProviderOptions(aiSettings);
@@ -124,15 +127,10 @@ export async function POST(request: Request) {
 
       const result = streamText({
         model,
-        maxRetries: isLocalProvider ? 0 : undefined,
+        maxRetries: isLocalProvider ? 3 : 5,
         abortSignal,
         maxOutputTokens: blockNoteMaxOutputTokens,
-        temperature: isLocalProvider ? 0 : undefined,
-        providerOptions,
-        system: getWallEBlockNoteSystemPrompt(
-          aiDocumentFormats.html.systemPrompt,
-          aiSettings,
-        ),
+        temperature: 0,
         messages: await convertToModelMessages(blockNoteMessages, {
           ignoreIncompleteToolCalls: true,
         }),
@@ -194,13 +192,13 @@ export async function POST(request: Request) {
 
     const result = streamText({
       model,
-      maxRetries: isLocalProvider ? 0 : undefined,
+      maxRetries: isLocalProvider ? 3 : 5,
       abortSignal,
       maxOutputTokens,
-      temperature: isLocalProvider ? 0 : undefined,
+      temperature: 0,
       providerOptions,
       system: systemPrompt,
-      messages: convertToModelMessages(messages, {
+      messages: await convertToModelMessages(messages, {
         tools,
         ignoreIncompleteToolCalls: true,
       }),

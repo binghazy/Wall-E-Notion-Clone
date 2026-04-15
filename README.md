@@ -193,7 +193,7 @@ EdgeStore handles file uploads with:
 ### Creating Documents
 
 1. Click the "+" button in the sidebar
-2. Choose "Add a page"
+2. Choose "Add a Note"
 3. Start writing with the rich text editor
 
 ### AI Integration

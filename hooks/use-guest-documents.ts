@@ -31,6 +31,22 @@ type GuestDocumentsStore = {
   clearPendingDeletions: (ids: string[]) => void;
 };
 
+const LEGACY_UNTITLED_TITLE = "untitled";
+
+const normalizeGuestDocumentTitle = (title: string | undefined) => {
+  const normalizedTitle = title?.trim();
+
+  if (!normalizedTitle) {
+    return "";
+  }
+
+  if (normalizedTitle.toLowerCase() === LEGACY_UNTITLED_TITLE) {
+    return "";
+  }
+
+  return normalizedTitle;
+};
+
 const createGuestDocumentId = () => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -55,7 +71,7 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
         const id = createGuestDocumentId();
         const nextDocument: GuestDocument = {
           id,
-          title,
+          title: normalizeGuestDocumentTitle(title),
           content: undefined,
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -86,16 +102,23 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
               continue;
             }
 
+            const normalizedIncomingTitle = normalizeGuestDocumentTitle(
+              incomingDocument.title,
+            );
             const existingDocument = byId.get(incomingDocument.id);
 
             if (!existingDocument) {
-              byId.set(incomingDocument.id, incomingDocument);
+              byId.set(incomingDocument.id, {
+                ...incomingDocument,
+                title: normalizedIncomingTitle,
+              });
               continue;
             }
 
             byId.set(incomingDocument.id, {
               ...existingDocument,
               ...incomingDocument,
+              title: normalizedIncomingTitle,
               updatedAt: Math.max(
                 existingDocument.updatedAt,
                 incomingDocument.updatedAt,
@@ -118,7 +141,7 @@ export const useGuestDocuments = create<GuestDocumentsStore>()(
                     ...updates,
                     title:
                       "title" in updates
-                        ? (updates.title ?? "")
+                        ? normalizeGuestDocumentTitle(updates.title)
                         : document.title,
                     updatedAt: Date.now(),
                   }

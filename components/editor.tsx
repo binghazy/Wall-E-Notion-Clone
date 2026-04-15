@@ -35,9 +35,6 @@ interface EditorProps {
   editable?: boolean;
 }
 
-const CLOUD_AI_WRITING_STALL_TIMEOUT_MS = 1_000;
-const LOCAL_AI_WRITING_STALL_TIMEOUT_MS = 1_000;
-
 const parseInitialContent = (initialContent?: string) => {
   if (!initialContent) {
     return undefined;
@@ -97,7 +94,8 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
   const aiOllamaBaseUrl = useAiSettings((state) => state.ollamaBaseUrl);
   const hasInitializedContentRef = useRef(false);
   const initialBlocksRef = useRef<PartialBlock[] | undefined>(undefined);
-
+  const hasAutoAcceptedCurrentReviewRef = useRef(false);
+  const lastAutoRetriedErrorSignatureRef = useRef<string | null>(null);
   const resolvedAiSettings = useMemo(
     () =>
       getResolvedAiSettings({
@@ -186,66 +184,79 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
       return;
     }
 
-    const aiWritingStallTimeoutMs =
-      resolvedAiSettings.provider === "ollama"
-        ? LOCAL_AI_WRITING_STALL_TIMEOUT_MS
-        : CLOUD_AI_WRITING_STALL_TIMEOUT_MS;
-
-    let stalledWritingTimeout: ReturnType<typeof setTimeout> | null = null;
-
-    const clearStalledWritingTimeout = () => {
-      if (stalledWritingTimeout !== null) {
-        clearTimeout(stalledWritingTimeout);
-        stalledWritingTimeout = null;
-      }
-    };
-
-    const syncAiWritingGuard = () => {
+    const handleAiMenuStateChange = () => {
       const aiMenuState = aiExtension.store.state.aiMenuState;
 
-      if (
-        aiMenuState === "closed" ||
-        (aiMenuState.status !== "thinking" &&
-          aiMenuState.status !== "ai-writing")
-      ) {
-        clearStalledWritingTimeout();
+      if (aiMenuState === "closed") {
+        hasAutoAcceptedCurrentReviewRef.current = false;
+        lastAutoRetriedErrorSignatureRef.current = null;
         return;
       }
 
-      clearStalledWritingTimeout();
-      stalledWritingTimeout = setTimeout(() => {
-        const latestState = aiExtension.store.state.aiMenuState;
+      if (
+        aiMenuState.status === "user-input" ||
+        aiMenuState.status === "thinking" ||
+        aiMenuState.status === "ai-writing"
+      ) {
+        hasAutoAcceptedCurrentReviewRef.current = false;
+        return;
+      }
 
-        if (latestState === "closed" || latestState.status !== "ai-writing") {
+      if (aiMenuState.status === "user-reviewing") {
+        if (hasAutoAcceptedCurrentReviewRef.current) {
           return;
         }
 
-        void aiExtension
-          .abort("ai-writing-stalled")
-          .catch((error) => {
-            console.error("[EDITOR_AI_ABORT_STALLED_WRITING_ERROR]", error);
-          })
-          .finally(() => {
-            const currentState = aiExtension.store.state.aiMenuState;
+        hasAutoAcceptedCurrentReviewRef.current = true;
+        lastAutoRetriedErrorSignatureRef.current = null;
 
-            if (
-              currentState !== "closed" &&
-              currentState.status === "ai-writing"
-            ) {
-              aiExtension.setAIResponseStatus("user-reviewing");
-            }
+        queueMicrotask(() => {
+          try {
+            aiExtension.acceptChanges();
+          } catch (error) {
+            console.error("[EDITOR_AI_AUTO_ACCEPT_ERROR]", error);
+          }
+        });
+        return;
+      }
+
+      if (aiMenuState.status === "error") {
+        const errorMessage =
+          aiMenuState.error instanceof Error
+            ? aiMenuState.error.message
+            : String(aiMenuState.error ?? "");
+        const normalizedErrorMessage = errorMessage.toLowerCase();
+
+        if (
+          normalizedErrorMessage.includes("abort") ||
+          normalizedErrorMessage.includes("cancel")
+        ) {
+          return;
+        }
+
+        const errorSignature = `${aiMenuState.blockId}:${errorMessage}`;
+
+        if (lastAutoRetriedErrorSignatureRef.current === errorSignature) {
+          return;
+        }
+
+        lastAutoRetriedErrorSignatureRef.current = errorSignature;
+
+        queueMicrotask(() => {
+          void aiExtension.retry().catch((retryError) => {
+            console.error("[EDITOR_AI_AUTO_RETRY_ERROR]", retryError);
           });
-      }, aiWritingStallTimeoutMs);
+        });
+      }
     };
 
-    const unsubscribe = aiExtension.store.subscribe(syncAiWritingGuard);
-    syncAiWritingGuard();
+    handleAiMenuStateChange();
+    const unsubscribe = aiExtension.store.subscribe(handleAiMenuStateChange);
 
     return () => {
-      clearStalledWritingTimeout();
       unsubscribe();
     };
-  }, [editor, resolvedAiSettings.provider]);
+  }, [editor]);
 
   return (
     <div>
