@@ -3,13 +3,9 @@ import Logo from "./logo";
 
 const Footer = () => {
   return (
-    <div className="flex items-center w-full p-6 bg-background z-50 dark:bg-[#1F1F1F]">
+    <div className="z-50 flex w-full flex-col gap-3 bg-background p-4 dark:bg-[#1F1F1F] sm:flex-row sm:items-center sm:p-6">
       <Logo />
-      <div
-        className="md:ml-auto w-full justify-between
-      md:justify-end flex items-center gap-x-2
-      text-muted-foreground"
-      >
+      <div className="flex w-full items-center justify-center gap-x-2 text-muted-foreground sm:ml-auto sm:w-auto sm:justify-end">
         <Button variant="ghost" size="sm">
           Privary Policy
         </Button>

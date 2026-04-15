@@ -421,7 +421,9 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <p className="truncate text-base font-semibold text-[#252525] dark:text-white">
                 {workspaceOwnerName}
               </p>
-              <p className="text-sm text-muted-foreground">Local workspace</p>
+              <p className="whitespace-nowrap text-sm text-muted-foreground">
+                Local workspace
+              </p>
             </div>
           </div>
 

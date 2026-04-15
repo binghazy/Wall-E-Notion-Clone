@@ -6,7 +6,7 @@ const Heroes = () => {
   max-w-5xl -mt-4 md:-mt-6"
     >
       <div className="flex items-center justify-center">
-        <div className="relative h-[400px] w-[400px]">
+        <div className="relative h-[240px] w-[240px] sm:h-[320px] sm:w-[320px] md:h-[400px] md:w-[400px]">
           <Image
             src="/walle.png"
             fill

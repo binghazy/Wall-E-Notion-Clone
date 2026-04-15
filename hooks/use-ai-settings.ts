@@ -11,7 +11,7 @@ export type WallEPuterModel = (typeof WALLE_PUTER_MODELS)[number];
 
 export const DEFAULT_WALLE_PROVIDER: WallEAiProvider = "puter";
 export const DEFAULT_WALLE_PUTER_MODEL = "gpt-5-nano";
-export const DEFAULT_WALLE_GEMINI_MODEL = "gemini-3-flash-preview";
+export const DEFAULT_WALLE_GEMINI_MODEL = "gemini-2.5-flash";
 export const DEFAULT_WALLE_LOCAL_MODEL = "qwen3:4b";
 export const DEFAULT_WALLE_MODEL = DEFAULT_WALLE_PUTER_MODEL;
 export const DEFAULT_WALLE_OLLAMA_BASE_URL = "http://localhost:11434";
@@ -22,9 +22,7 @@ const isValidPuterModel = (value: string): value is WallEPuterModel => {
   return WALLE_PUTER_MODELS.includes(value as WallEPuterModel);
 };
 
-const normalizeProvider = (
-  value: string | undefined,
-): WallEAiProvider => {
+const normalizeProvider = (value: string | undefined): WallEAiProvider => {
   const normalizedValue = normalizeSetting(value).toLowerCase();
 
   if (
@@ -79,7 +77,9 @@ type AiSettingsStore = AiSettingsSnapshot & {
   resetSettings: () => void;
 };
 
-export const getResolvedAiSettings = (settings: Partial<AiSettingsSnapshot>) => {
+export const getResolvedAiSettings = (
+  settings: Partial<AiSettingsSnapshot>,
+) => {
   const provider = normalizeProvider(settings.provider);
 
   return {

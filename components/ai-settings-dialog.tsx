@@ -137,7 +137,7 @@ export const AiSettingsDialog = ({
                   setDraftModel(getDefaultModelForProvider("puter"));
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs transition sm:text-sm",
                   draftProvider === "puter"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 hover:bg-muted",
@@ -153,7 +153,7 @@ export const AiSettingsDialog = ({
                   setDraftModel(getDefaultModelForProvider("gemini"));
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs transition sm:text-sm",
                   draftProvider === "gemini"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 hover:bg-muted",
@@ -169,7 +169,7 @@ export const AiSettingsDialog = ({
                   setDraftModel(getDefaultModelForProvider("ollama"));
                 }}
                 className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm transition",
+                  "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs transition sm:text-sm",
                   draftProvider === "ollama"
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/40 hover:bg-muted",

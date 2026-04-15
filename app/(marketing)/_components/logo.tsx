@@ -9,22 +9,22 @@ const font = Poppins({
 
 const Logo = () => {
   return (
-    <div className="hidden md:flex items-center gap-x-2">
+    <div className="flex items-center gap-x-2">
       <Image
         src="/logo.svg"
-        height="60"
-        width="60"
+        height="44"
+        width="44"
         alt="Logo"
-        className="dark:hidden"
+        className="dark:hidden sm:h-[60px] sm:w-[60px]"
       />
       <Image
         src="/logo-dark.svg"
-        height="60"
-        width="60"
+        height="44"
+        width="44"
         alt="Logo"
-        className="hidden dark:block"
+        className="hidden dark:block sm:h-[60px] sm:w-[60px]"
       />
-      <p className={cn("font-semibold whitespace-nowrap", font.className)}>
+      <p className={cn("hidden whitespace-nowrap font-semibold sm:block", font.className)}>
         Wall-E AI
       </p>
     </div>

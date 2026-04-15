@@ -192,6 +192,75 @@ const openAICompatibleToolCallFetch: typeof fetch = async (input, init) => {
   return response;
 };
 
+const geminiOpenAICompatibleFetch =
+  (apiKey: string): typeof fetch =>
+  async (input, init) => {
+    const requestUrl = getRequestUrl(input);
+    let urlString = requestUrl;
+
+    // Append the API key as a query parameter to the end of the URL
+    const separator = requestUrl.includes("?") ? "&" : "?";
+    urlString = `${requestUrl}${separator}key=${encodeURIComponent(apiKey)}`;
+
+    const url = new URL(urlString);
+
+    // Create fresh headers without Authorization
+    const headers = new Headers(init?.headers);
+
+    // Remove any Authorization-like headers
+    const headerKeys = Array.from(headers.keys());
+    for (const key of headerKeys) {
+      if (key.toLowerCase() === "authorization") {
+        headers.delete(key);
+      }
+    }
+
+    const response = await fetch(url, {
+      ...init,
+      headers,
+    });
+
+    const responseHeaders = new Headers(response.headers);
+    const contentType = responseHeaders.get("content-type") ?? "";
+
+    if (contentType.includes("text/event-stream") && response.body) {
+      return new Response(transformGeminiSseStream(response.body), {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+      });
+    }
+
+    if (contentType.includes("application/json")) {
+      const bodyText = await response.text();
+
+      if (!bodyText) {
+        return response;
+      }
+
+      try {
+        return new Response(
+          JSON.stringify(
+            patchOpenAICompatibleToolCallIndexes(JSON.parse(bodyText)),
+          ),
+          {
+            status: response.status,
+            statusText: response.statusText,
+            headers: responseHeaders,
+          },
+        );
+      } catch {
+        return new Response(bodyText, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders,
+        });
+      }
+    }
+
+    return response;
+  };
+
 const WALLE_AI_PROVIDERS = ["puter", "gemini", "ollama"] as const;
 const WALLE_PUTER_MODELS = ["gpt-5-nano", "gpt-5.4-nano"] as const;
 
@@ -204,8 +273,7 @@ const DEFAULT_PUTER_MODEL: WallEPuterModel =
   envPuterModel && WALLE_PUTER_MODELS.includes(envPuterModel as WallEPuterModel)
     ? (envPuterModel as WallEPuterModel)
     : "gpt-5-nano";
-const DEFAULT_GEMINI_MODEL =
-  process.env.GEMINI_MODEL ?? "gemini-3-flash-preview";
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 const DEFAULT_OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen3:4b";
 const DEFAULT_OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL ??
@@ -255,9 +323,9 @@ const envPuterAuthToken =
 const createGeminiClient = (apiKey: string) =>
   createOpenAI({
     name: "google",
-    apiKey,
+    apiKey: "", // Empty to prevent Authorization header - key is added via fetch
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
-    fetch: openAICompatibleToolCallFetch,
+    fetch: geminiOpenAICompatibleFetch(apiKey),
   });
 
 const createPuterClient = (authToken: string) =>
@@ -427,7 +495,7 @@ export const getMissingWallEAiConfigResponse = (
 export const getWallEProviderOptions = (settings?: WallEAiRuntimeSettings) => {
   const provider = getWallEAiProvider(settings);
 
-  if (provider === "gemini" || provider === "puter") {
+  if (provider === "puter") {
     return {
       openai: {
         reasoningEffort: "none",
@@ -435,13 +503,9 @@ export const getWallEProviderOptions = (settings?: WallEAiRuntimeSettings) => {
     };
   }
 
-  // For Ollama, keep responses focused and reduce reasoning-heavy drift.
-  if (provider === "ollama") {
-    return {
-      openai: {
-        reasoningEffort: "none",
-      },
-    };
+  // For Ollama and Gemini, keep responses focused without reasoning effort parameter.
+  if (provider === "ollama" || provider === "gemini") {
+    return {};
   }
 
   return undefined;

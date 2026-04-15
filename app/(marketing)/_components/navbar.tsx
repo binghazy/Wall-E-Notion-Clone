@@ -12,17 +12,14 @@ const Navbar = () => {
   const scrolled = useScrollTop();
 
   return (
-    <div
-      className={cn(
-        "z-20 bg-background dark:bg-[#1F1F1F] fixed top-0 flex items-center w-full px-6 py-3",
+      <div
+        className={cn(
+        "fixed top-0 z-20 flex w-full items-center bg-background px-4 py-3 dark:bg-[#1F1F1F] sm:px-6",
         scrolled && "border-b shadow-sm",
       )}
-    >
-      <Logo />
-      <div
-        className="md:ml-auto md:justify-end justify-between w-full
-      flex items-center gap-x-2"
       >
+      <Logo />
+      <div className="ml-auto flex items-center gap-x-2">
         <Button variant="ghost" size="sm" asChild>
           <Link href="/documents">Continue as guest</Link>
         </Button>

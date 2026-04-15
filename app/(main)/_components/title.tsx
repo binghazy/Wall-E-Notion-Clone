@@ -54,8 +54,8 @@ export const Title = ({ initialData }: TitleProps) => {
   };
 
   return (
-    <div className="flex items-center gap-x-1">
-      {!!initialData.icon && <p>{initialData.icon}</p>}
+    <div className="flex min-w-0 items-center gap-x-1">
+      {!!initialData.icon && <p className="shrink-0">{initialData.icon}</p>}
       {isEditing ? (
         <Input
           ref={inputRef}
@@ -64,14 +64,14 @@ export const Title = ({ initialData }: TitleProps) => {
           onKeyDown={onKeyDown}
           value={title}
           placeholder="New Note"
-          className="h-7 px-2 focus-visible:ring-transparent"
+          className="h-7 max-w-[62vw] px-2 focus-visible:ring-transparent sm:max-w-xs"
         />
       ) : (
         <Button
           onClick={enableInput}
           variant="ghost"
           size="sm"
-          className="font-normal h-auto p-1"
+          className="h-auto max-w-[62vw] min-w-0 p-1 font-normal sm:max-w-none"
         >
           <span className="truncate">
             {getDocumentDisplayTitle(initialData?.title)}

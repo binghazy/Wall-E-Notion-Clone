@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import { Bot, Copy, FileText, PlusCircle, Sparkles } from "lucide-react";
+import { Bot, Check, Copy, FileText, PlusCircle, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { AiSettingsDialog } from "@/components/ai-settings-dialog";
@@ -26,6 +26,11 @@ const DocumentsPage = () => {
   const [isAiSettingsDialogOpen, setIsAiSettingsDialogOpen] = useState(false);
   const [isAiSettingsOnboardingFlow, setIsAiSettingsOnboardingFlow] =
     useState(false);
+  const [hasCopiedTelegramCommand, setHasCopiedTelegramCommand] =
+    useState(false);
+  const telegramCopyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const { startTour: startHomeTour } = useSiteTour("home");
 
   const onboardingIdentity = "guest";
@@ -87,11 +92,27 @@ const DocumentsPage = () => {
 
     try {
       await navigator.clipboard.writeText(telegramCommand);
+      setHasCopiedTelegramCommand(true);
+      if (telegramCopyResetTimeoutRef.current) {
+        window.clearTimeout(telegramCopyResetTimeoutRef.current);
+      }
+      telegramCopyResetTimeoutRef.current = window.setTimeout(() => {
+        setHasCopiedTelegramCommand(false);
+      }, 2000);
       toast.success("Telegram link command copied.");
     } catch {
+      setHasCopiedTelegramCommand(false);
       toast.error("Could not copy command. Copy it manually.");
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (telegramCopyResetTimeoutRef.current) {
+        window.clearTimeout(telegramCopyResetTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <>
@@ -108,6 +129,7 @@ const DocumentsPage = () => {
         mode="guest"
         sessionId={sessionId}
         telegramCommand={telegramCommand}
+        hasCopiedTelegramCommand={hasCopiedTelegramCommand}
         onCopyTelegramCommand={handleCopyTelegramCommand}
         onCreate={useGuestCreateDocument()}
         onStartTutorial={() => void startHomeTour({ force: true })}
@@ -132,6 +154,7 @@ const DocumentsHomeContent = ({
   mode,
   sessionId,
   telegramCommand,
+  hasCopiedTelegramCommand,
   onCopyTelegramCommand,
   onCreate,
   onStartTutorial,
@@ -141,6 +164,7 @@ const DocumentsHomeContent = ({
   mode: "authenticated" | "guest";
   sessionId: string;
   telegramCommand: string;
+  hasCopiedTelegramCommand: boolean;
   onCopyTelegramCommand: () => void;
   onCreate: () => void;
   onStartTutorial: () => void;
@@ -250,8 +274,12 @@ const DocumentsHomeContent = ({
                   disabled={!telegramCommand}
                   className="w-full border-sky-300/80 bg-white/70 hover:bg-white sm:w-auto dark:border-sky-800/60 dark:bg-sky-900/30 dark:hover:bg-sky-900/50"
                 >
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy command
+                  {hasCopiedTelegramCommand ? (
+                    <Check className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
+                  {hasCopiedTelegramCommand ? "Copied" : "Copy command"}
                 </Button>
               </div>
               <p className="mt-2 text-sm text-sky-800/90 dark:text-sky-200/90">

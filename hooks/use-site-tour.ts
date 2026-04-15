@@ -7,46 +7,66 @@ type WallETourKind = "home" | "document";
 type StartTourOptions = {
   force?: boolean;
 };
-const telepic1="https://i.imgur.com/9KDJ31C.png";
-const tele1= `
-  <div style="display:flex;flex-direction:column;gap:10px;">
+const TOUR_IMAGE_HEIGHT_PX = 170;
+const TOUR_IMAGE_PRELOAD_TIMEOUT_MS = 2500;
+const TELE_PIC_1 = "https://i.imgur.com/9KDJ31C.png";
+const TELE_PIC_2 = "https://i.imgur.com/X9eNLFC.png";
+const COMPOSER_TOUR_IMAGE_URL = "https://i.imgur.com/fIF0kjM.png";
+
+const first_tour_finished =
+  "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2Y4Y3RsOTNha3o4azRqbGE0ZGZ5am84OTE0emN1dDlnOXNuNjBzbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cC4jUAUPDQ91K/giphy.gif";
+const TOUR_STORAGE_KEY_PREFIX = "walle-site-tour-complete";
+const TOUR_FINISH_GIF_URL =
+  "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjQ5aDVyM2xydTZmMW4ya3h6Nmpya2l2eDB4dnBpYnpybDQ1MTJpdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/JAAot6yVvkHni/giphy.gif";
+
+const buildTourImageHtml = (imageUrl: string) => `
+  <div style="display:flex;flex-direction:column;gap:10px;min-height:${TOUR_IMAGE_HEIGHT_PX}px;">
     <img
-      src="${telepic1}"
-      style="width:100%;max-height:100%;object-fit:cover;border-radius:12px;"
-    />
-  </div>
-`;
-const telepic2="https://i.imgur.com/X9eNLFC.png";
-const tele2 = `
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <img
-      src="${telepic2}"
-      style="width:100%;max-height:100%;object-fit:cover;border-radius:12px;"
+      src="${imageUrl}"
+      width="640"
+      height="${TOUR_IMAGE_HEIGHT_PX}"
+      loading="eager"
+      decoding="async"
+      style="display:block;width:100%;height100%;object-fit:cover;border-radius:12px;"
     />
   </div>
 `;
 
-const first_tour_finished =
-  "https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExd2Y4Y3RsOTNha3o4azRqbGE0ZGZ5am84OTE0emN1dDlnOXNuNjBzbyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/cC4jUAUPDQ91K/giphy.gif";
-const First_Tour_HTML = `
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <img
-      src="${first_tour_finished}"
-      style="width:100%;max-height:170px;object-fit:cover;border-radius:12px;"
-    />
-  </div>
-`;
-const TOUR_STORAGE_KEY_PREFIX = "walle-site-tour-complete";
-const TOUR_FINISH_GIF_URL =
-  "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjQ5aDVyM2xydTZmMW4ya3h6Nmpya2l2eDB4dnBpYnpybDQ1MTJpdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/JAAot6yVvkHni/giphy.gif";
-const TOUR_FINISH_HTML = `
-  <div style="display:flex;flex-direction:column;gap:10px;">
-    <img
-      src="${TOUR_FINISH_GIF_URL}"
-      style="width:100%;max-height:170px;object-fit:cover;border-radius:12px;"
-    />
-  </div>
-`;
+const tele1 = buildTourImageHtml(TELE_PIC_1);
+const tele2 = buildTourImageHtml(TELE_PIC_2);
+const COMPOSER_TOUR_HTML = buildTourImageHtml(COMPOSER_TOUR_IMAGE_URL);
+const First_Tour_HTML = buildTourImageHtml(first_tour_finished);
+const TOUR_FINISH_HTML = buildTourImageHtml(TOUR_FINISH_GIF_URL);
+
+const TOUR_IMAGE_URLS = [
+  TELE_PIC_1,
+  TELE_PIC_2,
+  COMPOSER_TOUR_IMAGE_URL,
+  first_tour_finished,
+  TOUR_FINISH_GIF_URL,
+];
+
+const preloadTourImage = (imageUrl: string) => {
+  return new Promise<void>((resolve) => {
+    const image = new Image();
+    const timer = window.setTimeout(() => {
+      resolve();
+    }, TOUR_IMAGE_PRELOAD_TIMEOUT_MS);
+
+    const finish = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+
+    image.onload = finish;
+    image.onerror = finish;
+    image.src = imageUrl;
+  });
+};
+
+const preloadTourImages = async () => {
+  await Promise.all(TOUR_IMAGE_URLS.map(preloadTourImage));
+};
 
 const HOME_TOUR_STEPS: DriveStep[] = [
   {
@@ -87,7 +107,7 @@ const HOME_TOUR_STEPS: DriveStep[] = [
     },
   },
 
-    {
+  {
     popover: {
       title: "Scan This QR Code to See Our Bot On Telegram",
       description: tele1,
@@ -137,8 +157,7 @@ const DOCUMENT_TOUR_STEPS: DriveStep[] = [
     element: '[data-tour="document-editor"]',
     popover: {
       title: "Use Composer To Generate Content For You",
-      description:
-        "Write normally, then use AI composer in the editor to generate or transform content.",
+      description: COMPOSER_TOUR_HTML,
       side: "top",
       align: "start",
     },
@@ -202,6 +221,8 @@ export const useSiteTour = (tourKind: WallETourKind) => {
         return;
       }
 
+      await preloadTourImages();
+
       let removeEnterKeyListener: (() => void) | null = null;
       const tour = driver({
         steps,
@@ -212,6 +233,26 @@ export const useSiteTour = (tourKind: WallETourKind) => {
         nextBtnText: "Next",
         prevBtnText: "Back",
         doneBtnText: "Done",
+        onPopoverRender: (popover, { driver: currentDriver }) => {
+          const popoverImages = popover.description.querySelectorAll("img");
+
+          popoverImages.forEach((image) => {
+            if (image.complete) {
+              return;
+            }
+
+            const refreshPopoverPlacement = () => {
+              currentDriver.refresh();
+            };
+
+            image.addEventListener("load", refreshPopoverPlacement, {
+              once: true,
+            });
+            image.addEventListener("error", refreshPopoverPlacement, {
+              once: true,
+            });
+          });
+        },
         onDestroyed: () => {
           removeEnterKeyListener?.();
           window.localStorage.setItem(storageKey, "true");

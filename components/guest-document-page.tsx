@@ -3,7 +3,7 @@
 import { type PartialBlock } from "@blocknote/core";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft, FileText, HelpCircle, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";

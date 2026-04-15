@@ -5,9 +5,7 @@ import {
   CalendarDays,
   CheckSquare2,
   Loader2,
-  PenLine,
   Settings2,
-  Sparkles,
   X,
 } from "lucide-react";
 import Image from "next/image";

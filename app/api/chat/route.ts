@@ -131,6 +131,11 @@ export async function POST(request: Request) {
         abortSignal,
         maxOutputTokens: blockNoteMaxOutputTokens,
         temperature: 0,
+        providerOptions,
+        system: getWallEBlockNoteSystemPrompt(
+          aiDocumentFormats.html.systemPrompt,
+          aiSettings,
+        ),
         messages: await convertToModelMessages(blockNoteMessages, {
           ignoreIncompleteToolCalls: true,
         }),
