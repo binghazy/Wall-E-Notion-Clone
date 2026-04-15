@@ -464,7 +464,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   ];
 
   const navigationContent = (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="flex h-full flex-col bg-background pl-1 text-foreground">
       <div className="border-b border-border/70 px-3 py-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -517,7 +517,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                   onClick={() => setIsMobileNavOpen(false)}
                   data-tour={item.label === "Wall-E AI" ? "shell-open-ai" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-base transition-colors hover:bg-accent/70 hover:text-foreground",
+                    "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-base transition-colors hover:bg-accent/70 hover:text-foreground",
                     item.isActive
                       ? "bg-accent font-medium text-foreground"
                       : "text-muted-foreground",
@@ -536,7 +536,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                 onClick={item.onClick}
                 data-tour={item.label === "Wall-E AI" ? "shell-open-ai" : undefined}
                 className={cn(
-                  "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base transition-colors hover:bg-accent/70 hover:text-foreground",
+                  "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-left text-base transition-colors hover:bg-accent/70 hover:text-foreground",
                   item.isActive
                     ? "bg-accent font-medium text-foreground"
                     : "text-muted-foreground",
@@ -574,7 +574,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={() => handlePlaceholderClick("New agent")}
-                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <Plus className="h-5 w-5" />
                 New agent
@@ -582,7 +582,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={() => handlePlaceholderClick("More")}
-                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <MoreHorizontal className="h-5 w-5" />
                 More
@@ -611,7 +611,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={handleCreateDocument}
-                className="mb-2 flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+                className="mb-2 flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <Plus className="h-5 w-5" />
                 Add a Note
@@ -651,7 +651,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                       <button
                         type="button"
                         onClick={(event) => handleDeleteDocument(event, document.id)}
-                        className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent/70 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
+                        className="absolute right-2.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent/70 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
                         aria-label={`Delete ${getDocumentDisplayTitle(document.title)}`}
                         title="Delete note"
                       >
@@ -669,7 +669,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         <button
           type="button"
           onClick={handleStartTutorial}
-          className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
+          className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-2 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
         >
           <HelpCircle className="h-5 w-5" />
           Tutorial
@@ -687,7 +687,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
           </DialogContent>
         </Dialog>
       ) : (
-        <aside className="hidden h-full w-[15rem] shrink-0 border-r border-border/70 bg-background lg:flex">
+        <aside className="hidden h-full w-[15rem] shrink-0 border-r border-border/70 bg-background lg:ml-2 lg:flex">
           {navigationContent}
         </aside>
       )}
