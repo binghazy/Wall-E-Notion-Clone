@@ -59,6 +59,43 @@ const OPEN_WALLE_ASSISTANT_EVENT = "walle:open-ai-sidebar";
 const TELEGRAM_SYNC_FAILURE_PAUSE_MS = 60_000;
 const TELEGRAM_SYNC_MAX_FAILURES_BEFORE_PAUSE = 3;
 
+const normalizeContentForComparison = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => normalizeContentForComparison(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  const normalizedEntries = Object.entries(record)
+    .filter(([key]) => key !== "id")
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+    .map(([key, entryValue]) => [
+      key,
+      normalizeContentForComparison(entryValue),
+    ]);
+
+  return Object.fromEntries(normalizedEntries);
+};
+
+const getContentComparisonSignature = (serializedContent?: string) => {
+  const normalizedContent = serializedContent?.trim();
+
+  if (!normalizedContent) {
+    return "";
+  }
+
+  try {
+    return JSON.stringify(
+      normalizeContentForComparison(JSON.parse(normalizedContent)),
+    );
+  } catch {
+    return normalizedContent;
+  }
+};
+
 export const GuestShell = ({ children }: GuestShellProps) => {
   const pathname = usePathname();
   const router = useRouter();
@@ -68,6 +105,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   const [isPagesOpen, setIsPagesOpen] = useState(true);
   const [hasMounted, setHasMounted] = useState(false);
   const lastSyncedTelegramContentRef = useRef<Map<string, string>>(new Map());
+  const lastPostedLocalContentRef = useRef<Map<string, string>>(new Map());
   const lastPushedLocalSignatureRef = useRef("");
   const syncFailureCountRef = useRef(0);
   const syncPausedUntilRef = useRef(0);
@@ -99,6 +137,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
 
   useEffect(() => {
     lastSyncedTelegramContentRef.current.clear();
+    lastPostedLocalContentRef.current.clear();
     lastPushedLocalSignatureRef.current = "";
     syncFailureCountRef.current = 0;
     syncPausedUntilRef.current = 0;
@@ -199,6 +238,12 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         );
       }
 
+      lastPostedLocalContentRef.current = new Map(
+        sessionNotes.map((note) => [
+          note.id,
+          getContentComparisonSignature(note.content ?? ""),
+        ]),
+      );
       lastPushedLocalSignatureRef.current = payloadSignature;
       clearPendingDeletions(
         deletedNotesPayload.map((deletion) => deletion.id),
@@ -246,27 +291,38 @@ export const GuestShell = ({ children }: GuestShellProps) => {
           incomingIds.add(note.id);
 
           const normalizedIncomingContent = note.content ?? "";
-          const previousSyncedContent =
+          const incomingContentSignature = getContentComparisonSignature(
+            normalizedIncomingContent,
+          );
+          const previousSyncedContentSignature =
             lastSyncedTelegramContentRef.current.get(note.id);
           const existingDocument = existingById.get(note.id);
           const existingContent = existingDocument?.content ?? "";
+          const existingContentSignature = getContentComparisonSignature(
+            existingContent,
+          );
+          const lastPostedLocalContentSignature =
+            lastPostedLocalContentRef.current.get(note.id);
+          const isLocalEcho =
+            typeof lastPostedLocalContentSignature === "string" &&
+            lastPostedLocalContentSignature === incomingContentSignature;
 
           const isInitialContentMismatch =
-            previousSyncedContent === undefined &&
+            previousSyncedContentSignature === undefined &&
             Boolean(existingDocument) &&
-            existingContent !== normalizedIncomingContent;
+            existingContentSignature !== incomingContentSignature;
           const hasServerContentChanged =
-            previousSyncedContent !== undefined &&
-            previousSyncedContent !== normalizedIncomingContent &&
-            existingContent !== normalizedIncomingContent;
+            previousSyncedContentSignature !== undefined &&
+            previousSyncedContentSignature !== incomingContentSignature &&
+            existingContentSignature !== incomingContentSignature;
 
-          if (isInitialContentMismatch || hasServerContentChanged) {
+          if (!isLocalEcho && (isInitialContentMismatch || hasServerContentChanged)) {
             changedSyncedNotes.push(note);
           }
 
           lastSyncedTelegramContentRef.current.set(
             note.id,
-            normalizedIncomingContent,
+            incomingContentSignature,
           );
         }
 

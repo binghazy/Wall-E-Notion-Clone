@@ -18,6 +18,288 @@ const getRequestUrl = (input: RequestInfo | URL) => {
   return input.url;
 };
 
+const GEMINI_SUPPORTED_SCHEMA_TYPES = new Set([
+  "object",
+  "array",
+  "string",
+  "number",
+  "integer",
+  "boolean",
+]);
+
+const normalizeGeminiSchemaType = (schemaType: unknown) => {
+  if (typeof schemaType === "string") {
+    return {
+      type: schemaType,
+      nullable: false,
+    };
+  }
+
+  if (!Array.isArray(schemaType)) {
+    return {
+      type: undefined,
+      nullable: false,
+    };
+  }
+
+  const typedValues = schemaType.filter(
+    (value): value is string => typeof value === "string",
+  );
+  const nullable = typedValues.includes("null");
+  const firstSupportedType = typedValues.find((value) => value !== "null");
+
+  return {
+    type: firstSupportedType,
+    nullable,
+  };
+};
+
+const sanitizeGeminiToolJsonSchema = (schema: unknown): Record<string, unknown> => {
+  if (!schema || typeof schema !== "object") {
+    return {
+      type: "string",
+    };
+  }
+
+  const schemaRecord = schema as Record<string, unknown>;
+
+  const unionValue = ["anyOf", "oneOf", "allOf"]
+    .map((key) => schemaRecord[key])
+    .find((value) => Array.isArray(value));
+  if (Array.isArray(unionValue) && unionValue.length > 0) {
+    const firstVariant = unionValue.find(
+      (value) => value && typeof value === "object",
+    );
+
+    if (firstVariant) {
+      return sanitizeGeminiToolJsonSchema(firstVariant);
+    }
+  }
+
+  const { type: rawType, nullable } = normalizeGeminiSchemaType(
+    schemaRecord.type,
+  );
+  const normalizedType = rawType && GEMINI_SUPPORTED_SCHEMA_TYPES.has(rawType)
+    ? rawType
+    : undefined;
+
+  const description =
+    typeof schemaRecord.description === "string"
+      ? schemaRecord.description
+      : undefined;
+
+  if (
+    normalizedType === "object" ||
+    (!normalizedType &&
+      schemaRecord.properties &&
+      typeof schemaRecord.properties === "object" &&
+      !Array.isArray(schemaRecord.properties))
+  ) {
+    const rawProperties =
+      schemaRecord.properties &&
+      typeof schemaRecord.properties === "object" &&
+      !Array.isArray(schemaRecord.properties)
+        ? (schemaRecord.properties as Record<string, unknown>)
+        : {};
+
+    const properties = Object.fromEntries(
+      Object.entries(rawProperties).map(([key, value]) => [
+        key,
+        sanitizeGeminiToolJsonSchema(value),
+      ]),
+    );
+
+    const schemaResult: Record<string, unknown> = {
+      type: "object",
+      properties,
+    };
+
+    const required = Array.isArray(schemaRecord.required)
+      ? schemaRecord.required.filter(
+          (value): value is string =>
+            typeof value === "string" && value in properties,
+        )
+      : [];
+
+    if (required.length > 0) {
+      schemaResult.required = required;
+    }
+
+    if (description) {
+      schemaResult.description = description;
+    }
+
+    if (nullable) {
+      schemaResult.nullable = true;
+    }
+
+    return schemaResult;
+  }
+
+  if (normalizedType === "array" || (!normalizedType && schemaRecord.items)) {
+    const schemaResult: Record<string, unknown> = {
+      type: "array",
+      items: sanitizeGeminiToolJsonSchema(schemaRecord.items),
+    };
+
+    if (typeof schemaRecord.minItems === "number") {
+      schemaResult.minItems = schemaRecord.minItems;
+    }
+
+    if (typeof schemaRecord.maxItems === "number") {
+      schemaResult.maxItems = schemaRecord.maxItems;
+    }
+
+    if (description) {
+      schemaResult.description = description;
+    }
+
+    if (nullable) {
+      schemaResult.nullable = true;
+    }
+
+    return schemaResult;
+  }
+
+  if (Array.isArray(schemaRecord.enum) && schemaRecord.enum.length > 0) {
+    const schemaResult: Record<string, unknown> = {
+      type: normalizedType ?? "string",
+      enum: schemaRecord.enum.filter(
+        (value) =>
+          value === null ||
+          typeof value === "string" ||
+          typeof value === "number" ||
+          typeof value === "boolean",
+      ),
+    };
+
+    if (description) {
+      schemaResult.description = description;
+    }
+
+    if (nullable) {
+      schemaResult.nullable = true;
+    }
+
+    return schemaResult;
+  }
+
+  const schemaResult: Record<string, unknown> = {
+    type: normalizedType ?? "string",
+  };
+
+  if (description) {
+    schemaResult.description = description;
+  }
+
+  if (nullable) {
+    schemaResult.nullable = true;
+  }
+
+  if (typeof schemaRecord.minimum === "number") {
+    schemaResult.minimum = schemaRecord.minimum;
+  }
+
+  if (typeof schemaRecord.maximum === "number") {
+    schemaResult.maximum = schemaRecord.maximum;
+  }
+
+  if (typeof schemaRecord.minLength === "number") {
+    schemaResult.minLength = schemaRecord.minLength;
+  }
+
+  if (typeof schemaRecord.maxLength === "number") {
+    schemaResult.maxLength = schemaRecord.maxLength;
+  }
+
+  return schemaResult;
+};
+
+const sanitizeGeminiOpenAIRequestPayload = (payload: unknown) => {
+  if (!payload || typeof payload !== "object") {
+    return payload;
+  }
+
+  const payloadRecord = payload as Record<string, unknown>;
+  const sanitizedPayload: Record<string, unknown> = { ...payloadRecord };
+
+  // Gemini's OpenAI-compatible endpoint rejects several OpenAI-only fields.
+  delete sanitizedPayload.parallel_tool_calls;
+  delete sanitizedPayload.service_tier;
+  delete sanitizedPayload.store;
+  delete sanitizedPayload.prompt_cache_key;
+  delete sanitizedPayload.prompt_cache_retention;
+  delete sanitizedPayload.safety_identifier;
+  delete sanitizedPayload.verbosity;
+  delete sanitizedPayload.metadata;
+  delete sanitizedPayload.prediction;
+  delete sanitizedPayload.logit_bias;
+  delete sanitizedPayload.logprobs;
+  delete sanitizedPayload.top_logprobs;
+  delete sanitizedPayload.max_completion_tokens;
+
+  if (Array.isArray(payloadRecord.tools)) {
+    sanitizedPayload.tools = payloadRecord.tools.map((toolDefinition) => {
+      if (!toolDefinition || typeof toolDefinition !== "object") {
+        return toolDefinition;
+      }
+
+      const toolRecord = toolDefinition as Record<string, unknown>;
+      const toolFunction =
+        toolRecord.function &&
+        typeof toolRecord.function === "object" &&
+        !Array.isArray(toolRecord.function)
+          ? (toolRecord.function as Record<string, unknown>)
+          : undefined;
+
+      if (toolRecord.type !== "function" || !toolFunction) {
+        return toolDefinition;
+      }
+
+      return {
+        ...toolRecord,
+        function: {
+          ...toolFunction,
+          parameters: sanitizeGeminiToolJsonSchema(toolFunction.parameters),
+        },
+      };
+    });
+  }
+
+  if (
+    Array.isArray(sanitizedPayload.tools) &&
+    sanitizedPayload.tools.length === 0
+  ) {
+    delete sanitizedPayload.tool_choice;
+  }
+
+  return sanitizedPayload;
+};
+
+const sanitizeGeminiOpenAIRequestInit = (
+  requestUrl: string,
+  init: RequestInit | undefined,
+) => {
+  if (!requestUrl.includes("/chat/completions") || !init?.body) {
+    return init;
+  }
+
+  if (typeof init.body !== "string") {
+    return init;
+  }
+
+  try {
+    return {
+      ...init,
+      body: JSON.stringify(
+        sanitizeGeminiOpenAIRequestPayload(JSON.parse(init.body)),
+      ),
+    };
+  } catch {
+    return init;
+  }
+};
+
 const patchOpenAICompatibleToolCallIndexes = (payload: unknown) => {
   if (!payload || typeof payload !== "object") {
     return payload;
@@ -196,6 +478,7 @@ const geminiOpenAICompatibleFetch =
   (apiKey: string): typeof fetch =>
   async (input, init) => {
     const requestUrl = getRequestUrl(input);
+    const patchedInit = sanitizeGeminiOpenAIRequestInit(requestUrl, init);
     let urlString = requestUrl;
 
     // Append the API key as a query parameter to the end of the URL
@@ -205,18 +488,20 @@ const geminiOpenAICompatibleFetch =
     const url = new URL(urlString);
 
     // Create fresh headers without Authorization
-    const headers = new Headers(init?.headers);
+    const headers = new Headers(patchedInit?.headers);
 
-    // Remove any Authorization-like headers
+    // Remove Authorization and Content-Length so fetch can recalculate safely.
     const headerKeys = Array.from(headers.keys());
     for (const key of headerKeys) {
-      if (key.toLowerCase() === "authorization") {
+      const lowerKey = key.toLowerCase();
+
+      if (lowerKey === "authorization" || lowerKey === "content-length") {
         headers.delete(key);
       }
     }
 
     const response = await fetch(url, {
-      ...init,
+      ...patchedInit,
       headers,
     });
 
@@ -501,11 +786,6 @@ export const getWallEProviderOptions = (settings?: WallEAiRuntimeSettings) => {
         reasoningEffort: "none",
       },
     };
-  }
-
-  // For Ollama and Gemini, keep responses focused without reasoning effort parameter.
-  if (provider === "ollama" || provider === "gemini") {
-    return {};
   }
 
   return undefined;

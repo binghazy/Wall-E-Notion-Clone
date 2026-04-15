@@ -1,4 +1,4 @@
-import { type CoreMessage, generateText, stepCountIs, tool } from "ai";
+import { type ModelMessage, generateText, stepCountIs, tool } from "ai";
 import { ConvexHttpClient } from "convex/browser";
 import { z } from "zod";
 
@@ -708,7 +708,7 @@ Response style:
 `.trim();
 };
 
-const toCoreMessages = (messages: MemoryMessage[]): CoreMessage[] => {
+const toCoreMessages = (messages: MemoryMessage[]): ModelMessage[] => {
   return messages.map((message) => ({
     role: message.role,
     content: message.content,

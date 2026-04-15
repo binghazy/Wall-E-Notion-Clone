@@ -225,6 +225,11 @@ export const GuestDocumentPage = ({ documentId }: GuestDocumentPageProps) => {
         return;
       }
 
+      // Ignore local-source echo updates so manual/composer typing is not interrupted.
+      if (matchingNote.source !== "telegram") {
+        return;
+      }
+
       if (!editor) {
         return;
       }

@@ -94,7 +94,6 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
   const aiOllamaBaseUrl = useAiSettings((state) => state.ollamaBaseUrl);
   const hasInitializedContentRef = useRef(false);
   const initialBlocksRef = useRef<PartialBlock[] | undefined>(undefined);
-  const hasAutoAcceptedCurrentReviewRef = useRef(false);
   const lastAutoRetriedErrorSignatureRef = useRef<string | null>(null);
   const resolvedAiSettings = useMemo(
     () =>
@@ -188,7 +187,6 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
       const aiMenuState = aiExtension.store.state.aiMenuState;
 
       if (aiMenuState === "closed") {
-        hasAutoAcceptedCurrentReviewRef.current = false;
         lastAutoRetriedErrorSignatureRef.current = null;
         return;
       }
@@ -198,25 +196,12 @@ const Editor = ({ onChange, initialContent, editable }: EditorProps) => {
         aiMenuState.status === "thinking" ||
         aiMenuState.status === "ai-writing"
       ) {
-        hasAutoAcceptedCurrentReviewRef.current = false;
         return;
       }
 
       if (aiMenuState.status === "user-reviewing") {
-        if (hasAutoAcceptedCurrentReviewRef.current) {
-          return;
-        }
-
-        hasAutoAcceptedCurrentReviewRef.current = true;
+        // Keep composer in review mode so user can explicitly Accept or Undo.
         lastAutoRetriedErrorSignatureRef.current = null;
-
-        queueMicrotask(() => {
-          try {
-            aiExtension.acceptChanges();
-          } catch (error) {
-            console.error("[EDITOR_AI_AUTO_ACCEPT_ERROR]", error);
-          }
-        });
         return;
       }
 

@@ -28,9 +28,7 @@ const DocumentsPage = () => {
     useState(false);
   const [hasCopiedTelegramCommand, setHasCopiedTelegramCommand] =
     useState(false);
-  const telegramCopyResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const telegramCopyResetTimeoutRef = useRef<number | null>(null);
   const { startTour: startHomeTour } = useSiteTour("home");
 
   const onboardingIdentity = "guest";
