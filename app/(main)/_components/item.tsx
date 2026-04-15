@@ -104,14 +104,14 @@ const Item = ({
         paddingLeft: level ? `${level * 12 + 12}px` : "12px",
       }}
       className={cn(
-        "group min-h-[27px] text-sm py-1 pr-3 w-full hover:bg-primary/5 flex items-center text-muted-foreground font-medium",
-        active && "bg-primary/5 text-primary"
+        "group flex min-h-[27px] w-full items-center py-1 pr-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground",
+        active && "bg-accent text-foreground"
       )}
     >
       {!!id && (
         <div
           role="button"
-          className="h-full rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600 mr-1"
+          className="mr-1 h-full rounded-sm transition-colors hover:bg-accent"
           onClick={handleExpand}
         >
           <ChevronIcon className="h-4 w-4 shrink-0 text-muted-foreground/50" />
@@ -134,7 +134,7 @@ const Item = ({
             <DropdownMenuTrigger onClick={(e) => e.stopPropagation()} asChild>
               <div
                 role="button"
-                className="opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+                className="ml-auto h-full rounded-sm opacity-0 transition-colors group-hover:opacity-100 hover:bg-accent"
               >
                 <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
               </div>
@@ -158,7 +158,7 @@ const Item = ({
           <div
             role="button"
             onClick={onCreate}
-            className="opacity-0 group-hover:opacity-100 h-full ml-auto rounded-sm hover:bg-neutral-300 dark:hover:bg-neutral-600"
+            className="ml-auto h-full rounded-sm opacity-0 transition-colors group-hover:opacity-100 hover:bg-accent"
           >
             <Plus className="h-4 w-4 text-muted-foreground" />
           </div>

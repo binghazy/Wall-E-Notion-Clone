@@ -7,7 +7,7 @@ type WallETourKind = "home" | "document";
 type StartTourOptions = {
   force?: boolean;
 };
-const TOUR_IMAGE_HEIGHT_PX = 170;
+const TOUR_IMAGE_MAX_HEIGHT_PX = 220;
 const TOUR_IMAGE_PRELOAD_TIMEOUT_MS = 2500;
 const TELE_PIC_1 = "https://i.imgur.com/9KDJ31C.png";
 const TELE_PIC_2 = "https://i.imgur.com/X9eNLFC.png";
@@ -20,14 +20,14 @@ const TOUR_FINISH_GIF_URL =
   "https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjQ5aDVyM2xydTZmMW4ya3h6Nmpya2l2eDB4dnBpYnpybDQ1MTJpdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/JAAot6yVvkHni/giphy.gif";
 
 const buildTourImageHtml = (imageUrl: string) => `
-  <div style="display:flex;flex-direction:column;gap:10px;min-height:${TOUR_IMAGE_HEIGHT_PX}px;">
+  <div style="display:flex;flex-direction:column;gap:10px;">
     <img
       src="${imageUrl}"
       width="640"
-      height="${TOUR_IMAGE_HEIGHT_PX}"
+      height="${TOUR_IMAGE_MAX_HEIGHT_PX}"
       loading="eager"
       decoding="async"
-      style="display:block;width:100%;height100%;object-fit:cover;border-radius:12px;"
+      style="display:block;width:100%;height:auto;max-height:${TOUR_IMAGE_MAX_HEIGHT_PX}px;object-fit:contain;border-radius:12px;background:rgba(15,23,42,0.04);"
     />
   </div>
 `;

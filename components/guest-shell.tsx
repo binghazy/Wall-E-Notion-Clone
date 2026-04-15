@@ -464,8 +464,8 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   ];
 
   const navigationContent = (
-    <div className="flex h-full flex-col bg-[#ffffff] text-[#3d392f] dark:bg-[#1d1d1d] dark:text-[#d9d3c7]">
-      <div className="border-b border-black/5 px-3 py-5 dark:border-white/10">
+    <div className="flex h-full flex-col bg-background text-foreground">
+      <div className="border-b border-border/70 px-3 py-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="h-11 w-11 rounded-xl">
@@ -474,7 +474,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-[#252525] dark:text-white">
+              <p className="truncate text-base font-semibold text-foreground">
                 {workspaceOwnerName}
               </p>
               <p className="whitespace-nowrap text-sm text-muted-foreground">
@@ -497,7 +497,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         <button
           type="button"
           onClick={() => handlePlaceholderClick("Search")}
-          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-black/5 bg-white/60 py-3 pl-3 pr-1.5 text-left text-base text-muted-foreground shadow-sm transition hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.07]"
+          className="mt-4 flex w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/30 py-3 pl-3 pr-1.5 text-left text-base text-muted-foreground shadow-sm transition-colors hover:bg-accent/70 hover:text-foreground"
         >
           <Search className="h-5 w-5" />
           Search
@@ -517,10 +517,10 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                   onClick={() => setIsMobileNavOpen(false)}
                   data-tour={item.label === "Wall-E AI" ? "shell-open-ai" : undefined}
                   className={cn(
-                    "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-base transition hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                    "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-base transition-colors hover:bg-accent/70 hover:text-foreground",
                     item.isActive
-                      ? "bg-black/[0.05] font-medium text-[#1e1d1a] dark:bg-white/[0.08] dark:text-white"
-                      : "text-[#5c564b] dark:text-[#c0b8aa]",
+                      ? "bg-accent font-medium text-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   <Icon className="h-5 w-5" />
@@ -536,10 +536,10 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                 onClick={item.onClick}
                 data-tour={item.label === "Wall-E AI" ? "shell-open-ai" : undefined}
                 className={cn(
-                  "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base transition hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                  "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base transition-colors hover:bg-accent/70 hover:text-foreground",
                   item.isActive
-                    ? "bg-black/[0.05] font-medium text-[#1e1d1a] dark:bg-white/[0.08] dark:text-white"
-                    : "text-[#5c564b] dark:text-[#c0b8aa]",
+                    ? "bg-accent font-medium text-foreground"
+                    : "text-muted-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -574,7 +574,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={() => handlePlaceholderClick("New agent")}
-                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-[#5c564b] transition hover:bg-black/[0.04] dark:text-[#c0b8aa] dark:hover:bg-white/[0.06]"
+                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <Plus className="h-5 w-5" />
                 New agent
@@ -582,7 +582,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={() => handlePlaceholderClick("More")}
-                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-[#5c564b] transition hover:bg-black/[0.04] dark:text-[#c0b8aa] dark:hover:bg-white/[0.06]"
+                className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <MoreHorizontal className="h-5 w-5" />
                 More
@@ -611,20 +611,20 @@ export const GuestShell = ({ children }: GuestShellProps) => {
               <button
                 type="button"
                 onClick={handleCreateDocument}
-                className="mb-2 flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-[#5c564b] transition hover:bg-black/[0.04] dark:text-[#c0b8aa] dark:hover:bg-white/[0.06]"
+                className="mb-2 flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
               >
                 <Plus className="h-5 w-5" />
                 Add a Note
               </button>
 
               {!isDocumentsReady && (
-                <div className="rounded-xl border border-dashed border-black/10 px-4 py-5 text-base text-muted-foreground dark:border-white/10">
+                <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-base text-muted-foreground">
                   Loading pages...
                 </div>
               )}
 
               {isDocumentsReady && documents.length === 0 && (
-                <div className="rounded-xl border border-dashed border-black/10 px-4 py-5 text-base text-muted-foreground dark:border-white/10">
+                <div className="rounded-xl border border-dashed border-border/70 px-4 py-5 text-base text-muted-foreground">
                   No pages yet.
                 </div>
               )}
@@ -637,10 +637,10 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                         href={`/documents/${document.id}`}
                         onClick={() => setIsMobileNavOpen(false)}
                         className={cn(
-                          "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-9 text-base transition hover:bg-black/[0.04] dark:hover:bg-white/[0.06]",
+                          "flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-9 text-base transition-colors hover:bg-accent/70 hover:text-foreground",
                           activeDocumentId === document.id
-                            ? "bg-black/[0.05] font-medium text-[#1e1d1a] dark:bg-white/[0.08] dark:text-white"
-                            : "text-[#5c564b] dark:text-[#c0b8aa]",
+                            ? "bg-accent font-medium text-foreground"
+                            : "text-muted-foreground",
                         )}
                       >
                         <FileText className="h-5 w-5" />
@@ -651,7 +651,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
                       <button
                         type="button"
                         onClick={(event) => handleDeleteDocument(event, document.id)}
-                        className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-[#8a8478] opacity-0 transition hover:bg-black/[0.06] hover:text-red-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 dark:text-[#b4aa98] dark:hover:bg-white/[0.08] dark:hover:text-red-400"
+                        className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-colors hover:bg-accent/70 hover:text-destructive focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100"
                         aria-label={`Delete ${getDocumentDisplayTitle(document.title)}`}
                         title="Delete note"
                       >
@@ -665,11 +665,11 @@ export const GuestShell = ({ children }: GuestShellProps) => {
         </div>
       </div>
 
-      <div className="border-t border-black/5 px-3 py-3 dark:border-white/10">
+      <div className="border-t border-border/70 px-3 py-3">
         <button
           type="button"
           onClick={handleStartTutorial}
-          className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-[#5c564b] transition hover:bg-black/[0.04] dark:text-[#c0b8aa] dark:hover:bg-white/[0.06]"
+          className="flex w-full items-center gap-3.5 rounded-xl py-3 pl-3 pr-1 text-left text-base text-muted-foreground transition-colors hover:bg-accent/70 hover:text-foreground"
         >
           <HelpCircle className="h-5 w-5" />
           Tutorial
@@ -679,7 +679,7 @@ export const GuestShell = ({ children }: GuestShellProps) => {
   );
 
   return (
-    <div className="flex h-full bg-[#fbfaf8] text-foreground dark:bg-[#191919]">
+    <div className="flex h-full bg-background text-foreground">
       {isMobileLayout ? (
         <Dialog open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
           <DialogContent className="h-[calc(100dvh-1.5rem)] w-[calc(100vw-1rem)] max-w-none overflow-hidden rounded-2xl p-0 sm:h-[calc(100%-1.5rem)] sm:w-[calc(100%-1.5rem)] sm:max-w-none sm:rounded-[2rem]">
@@ -687,13 +687,13 @@ export const GuestShell = ({ children }: GuestShellProps) => {
           </DialogContent>
         </Dialog>
       ) : (
-        <aside className="hidden h-full w-[15rem] shrink-0 border-r border-black/5 bg-[#ffffff] lg:flex dark:border-white/10 dark:bg-[#1d1d1d]">
+        <aside className="hidden h-full w-[15rem] shrink-0 border-r border-border/70 bg-background lg:flex">
           {navigationContent}
         </aside>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-40 border-b border-black/5 bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80 dark:border-white/10 dark:bg-[#191919]/90">
+        <header className="sticky top-0 z-40 border-b border-border/70 bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               {isMobileLayout && (

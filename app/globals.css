@@ -222,8 +222,12 @@ body,
   color: var(--walle-tour-foreground);
   box-shadow: var(--walle-tour-shadow);
   padding: 1rem;
-  min-width: 270px;
+  width: min(92vw, 340px);
+  min-width: min(270px, 92vw);
   max-width: 340px;
+  max-height: min(82vh, 560px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .driver-popover-title {
@@ -237,6 +241,15 @@ body,
   color: var(--walle-tour-muted);
   font-size: 0.875rem;
   line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.driver-popover-description img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(42vh, 240px);
+  object-fit: contain;
 }
 
 .driver-popover-close-btn {
